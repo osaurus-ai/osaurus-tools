@@ -74,9 +74,8 @@ jobs:
           CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
         run: |
           if [ -z "$CERTIFICATE_P12_BASE64" ]; then
-            echo "No DEVELOPER_ID_CERTIFICATE_P12_BASE64 configured, will use ad-hoc signing"
-            echo "identity=" >> $GITHUB_OUTPUT
-            exit 0
+            echo "::error::DEVELOPER_ID_CERTIFICATE_P12_BASE64 is required. Developer ID code signing is mandatory for distribution."
+            exit 1
           fi
 
           # Create a temporary keychain
@@ -186,16 +185,15 @@ jobs:
         run: |
           DYLIB="${{ steps.build.outputs.dylib }}"
 
-          if [ -n "$CODESIGN_IDENTITY" ]; then
-            echo "Signing dylib with Developer ID..."
-            codesign --force --options runtime --timestamp --sign "$CODESIGN_IDENTITY" "$DYLIB"
-            codesign --verify --verbose "$DYLIB"
-            echo "Signed with Developer ID"
-          else
-            echo "Ad-hoc signing dylib (no CODESIGN_IDENTITY set)..."
-            codesign -s - -f "$DYLIB"
-            echo "Ad-hoc signed"
+          if [ -z "$CODESIGN_IDENTITY" ]; then
+            echo "::error::No signing identity available. Developer ID code signing is mandatory."
+            exit 1
           fi
+
+          echo "Signing dylib with Developer ID..."
+          codesign --force --options runtime --timestamp --sign "$CODESIGN_IDENTITY" "$DYLIB"
+          codesign --verify --verbose "$DYLIB"
+          echo "Signed with Developer ID"
 
       - name: Package artifact
         id: package
@@ -247,12 +245,11 @@ jobs:
         env:
           MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
           MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+          MINISIGN_PUBLIC_KEY: ${{ secrets.MINISIGN_PUBLIC_KEY }}
         run: |
-          # Skip if no signing key
           if [ -z "$MINISIGN_SECRET_KEY" ]; then
-            echo "No MINISIGN_SECRET_KEY configured, skipping signing"
-            echo "minisign_signature_b64=" >> $GITHUB_OUTPUT
-            exit 0
+            echo "::error::MINISIGN_SECRET_KEY is required. Artifact signing is mandatory for distribution."
+            exit 1
           fi
 
           TOOL="${{ steps.parse.outputs.tool }}"
@@ -276,15 +273,12 @@ jobs:
             minisign -Slm "$ARTIFACT" -s $RUNNER_TEMP/minisign.key -x "${ARTIFACT}.minisig" -W
           fi
 
-          # Debug: Show the signature file contents
-          echo "=== Generated signature file ==="
-          cat "${ARTIFACT}.minisig"
-          echo ""
-          echo "=== Signature file format check ==="
-          head -1 "${ARTIFACT}.minisig" | grep -q "prehashed" && echo "WARNING: Signature is prehashed!" || echo "OK: Signature is NOT prehashed"
-
-          # Note: Verification would require public key, skipping in CI
-          echo "=== Signature generated successfully ==="
+          # Verify the signature with the public key
+          echo "$MINISIGN_PUBLIC_KEY" > $RUNNER_TEMP/minisign.pub
+          echo "=== Verifying signature ==="
+          minisign -Vm "$ARTIFACT" -p $RUNNER_TEMP/minisign.pub -x "${ARTIFACT}.minisig"
+          echo "=== Signature verified successfully ==="
+          rm -f $RUNNER_TEMP/minisign.pub
 
           # Read full signature file and base64 encode for safe transport
           SIGNATURE_B64=$(base64 -i "${ARTIFACT}.minisig")

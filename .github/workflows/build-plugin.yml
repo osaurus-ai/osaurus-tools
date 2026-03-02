@@ -182,11 +182,18 @@ jobs:
         env:
           MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
           MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+          MINISIGN_PUBLIC_KEY: ${{ secrets.MINISIGN_PUBLIC_KEY }}
         run: |
           brew install minisign
           echo "$MINISIGN_SECRET_KEY" > $RUNNER_TEMP/minisign.key
 
           echo "$MINISIGN_PASSWORD" | minisign -Slm "${{ steps.package.outputs.artifact }}" -s $RUNNER_TEMP/minisign.key
+
+          # Verify the signature with the public key
+          echo "$MINISIGN_PUBLIC_KEY" > $RUNNER_TEMP/minisign.pub
+          minisign -Vm "${{ steps.package.outputs.artifact }}" -p $RUNNER_TEMP/minisign.pub
+          echo "Signature verified successfully"
+          rm -f $RUNNER_TEMP/minisign.pub
 
           # Save signature to file for artifact upload
           cp "${{ steps.package.outputs.artifact }}.minisig" build-data/signature.minisig

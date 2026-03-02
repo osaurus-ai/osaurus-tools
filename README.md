@@ -104,8 +104,7 @@ mycompany.mytool-1.0.0.zip
           "url": "https://example.com/downloads/mytool-1.0.0.zip",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "minisign": {
-            "signature": "RWxxxxxxxxxxxxxxxx",
-            "key_id": "xxxxxxxx"
+            "signature": "RWxxxxxxxxxxxxxxxx"
           }
         }
       ]
@@ -158,7 +157,7 @@ mycompany.mytool-1.0.0.zip
 | `arch`      | Yes      | CPU architecture (`arm64`)                    |
 | `url`       | Yes      | Direct download URL for the zip               |
 | `sha256`    | Yes      | SHA-256 checksum                              |
-| `minisign`  | Yes      | Minisign signature (`signature` and `key_id`) |
+| `minisign`  | Yes      | Minisign signature object (`signature`)       |
 | `min_macos` | No       | Minimum macOS version (e.g., "13.0")          |
 | `size`      | No       | File size in bytes                            |
 
