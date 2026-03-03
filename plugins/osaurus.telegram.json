@@ -1,0 +1,68 @@
+{
+  "plugin_id": "osaurus.telegram",
+  "name": "Telegram",
+  "description": "Connect Telegram chats to your Osaurus agents",
+  "homepage": "https://github.com/osaurus-ai/osaurus-telegram",
+  "license": "MIT",
+  "authors": [],
+  "capabilities": {
+    "tools": [
+      {
+        "name": "telegram_send",
+        "description": "Send a message to a Telegram chat. Supports text, markdown, and reply_markup for inline keyboards."
+      },
+      {
+        "name": "telegram_get_chat_history",
+        "description": "Retrieve recent messages from the plugin's local message log for a given Telegram chat."
+      }
+    ],
+    "routes": [
+      {
+        "name": "webhook",
+        "description": "Telegram Bot API webhook endpoint"
+      },
+      {
+        "name": "health",
+        "description": "Health check — returns webhook registration status"
+      }
+    ]
+  },
+  "public_keys": {
+    "minisign": "untrusted comment: minisign public key 8995EED3F2A709E6\nRWTmCafy0+6ViS/ZFdYN+4v3ATECbUamgj4WDgGz7R2/DD1UEHp1eXwt"
+  },
+  "requires": {
+    "min_macos": "15.0",
+    "osaurus_min_version": "0.5.0"
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.0/osaurus.telegram-1.0.0-macos-arm64.zip",
+          "sha256": "20a60c20f409741a3f876876eb6a52dcf67ab52ec684add0f741fa566309778b",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViQTyCqo+MloBc8o5Eaf7kPrciPAv1fUKmi6K0Verp/Wz8MhZvxfaOBxpFtdPDvcEfADTuuT16wMR4cMOl7aNWQk=\ntrusted comment: timestamp:1772507539\tfile:osaurus.telegram-1.0.0-macos-arm64.zip\nOtN7y7p+tob/SoCS7Wek8peJD6tqMZHtE16ECezGUgP3inG1DAHhvLHav0ygGS6RqHomRYFJ2vpGbkI/XrdtCw=="
+          }
+        }
+      ]
+    }
+  ],
+  "docs": {
+    "readme": "README.md",
+    "links": [
+      {
+        "label": "Telegram Bot API",
+        "url": "https://core.telegram.org/bots/api"
+      },
+      {
+        "label": "BotFather",
+        "url": "https://t.me/BotFather"
+      }
+    ]
+  }
+}
