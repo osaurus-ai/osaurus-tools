@@ -66,6 +66,198 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.10",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.10/osaurus.telegram-1.0.10-macos-arm64.zip",
+          "sha256": "0c46a452de59517498e440dc447fad051fc4952448810dc30dc446f98764567c",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6Vib7h54JS6DYZRVEXK6w1yVBvxjlJxU1Cn8NSY4GilNh1nJLhIjJHcYAmC+oooEYhBPW5zXR1aAUH6zYwznKi7AQ=\ntrusted comment: timestamp:1772567173\tfile:osaurus.telegram-1.0.10-macos-arm64.zip\nz7kSYB4o0e8B1SXuNnPitG7LVaKeVskWY9KnM2iWZzCukWZh+QQNNKC0YIBIi+W7MY8KuYFO42xIa1Yp8pSvDg=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.11",
+      "release_date": "2026-03-05",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.11/osaurus.telegram-1.0.11-macos-arm64.zip",
+          "sha256": "603976100cd558e08d5e5ae32a63f6b760ae52bf67f710710807a8ade80ffa50",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VibKFAQAIJa+Ic5VqQgZL0ymW1bBFMa6qgc4X+cQcYkkXzymVmd4s1JLAtDFPFWxWPVqMCOEqjByBtr/e1ItPQAg=\ntrusted comment: timestamp:1772734269\tfile:osaurus.telegram-1.0.11-macos-arm64.zip\ngjEUKf/Gle2d9Tr3jLEFyN3hsJG3vfGHqD3msrR/g86qz6FXbLfEG/rVoqVBouWYTEebJy+hx85VpkwTb4u7CA=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.12",
+      "release_date": "2026-03-19",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.12/osaurus.telegram-1.0.12-macos-arm64.zip",
+          "sha256": "07998ec745ef39e566457743138a251f1814b738e8a7166b58a6ab83917c1b99",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6Vif0gpP77Z8/VtipZ8CHsxLHiRuSjTsElJf2R5d7n00jZsC7AJA1/MVULDYFegDxud00oOvXZb7fOy6bxecTzUQw=\ntrusted comment: timestamp:1773927780\tfile:osaurus.telegram-1.0.12-macos-arm64.zip\nQHq+/r2N3bobwYMbZxSn0viS9EdcKPcMRxwmTciFKuJoexpSnpb7mqG7V0Sw6v6IdgHeKPWlvfc+ChDCGDeeAQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.13",
+      "release_date": "2026-03-24",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.13/osaurus.telegram-1.0.13-macos-arm64.zip",
+          "sha256": "222d1aea10e8ac891d2420c6c7cc06e5be8c1ab75a498d5764e27e01da6d605e",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViUB7XnsbDl+SJx3/6HGQ9WFT+enr6tMNnkGtU9KFIW/1miJ3vjLn23j0qpFodNOHfjPCGBXvHHzcqRx0ufRIKwE=\ntrusted comment: timestamp:1774368943\tfile:osaurus.telegram-1.0.13-macos-arm64.zip\nfs8lmJoD/HBsMpxhOkaHQGC0JGEZAxk2YQWXTQ1hCNzTerfj2bw3rnDGrV355ilHfYP305/lfZQ5xOs34RESAQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.2",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.2/osaurus.telegram-1.0.2-macos-arm64.zip",
+          "sha256": "1b0de0bfb6590d4ed100a18868b630f9534bc81635345c019244876a2d7c5ee8",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViRhDoQb5k1AJp6HPYtQoO5GlJdSrONBvo4aCRE8jooii2zDWmgb+Wf4A6AQ35v1h0f1Ny+b30896ENrg7hm9tQo=\ntrusted comment: timestamp:1772525336\tfile:osaurus.telegram-1.0.2-macos-arm64.zip\nbkbLsl3bvepu4BlmoKnexhxpvBqbuttehScYbq7l4XzYGV/IJFSkQkF9s8IBBr80CsEmMvpNy2dtMB7A0sPXAw=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.3/osaurus.telegram-1.0.3-macos-arm64.zip",
+          "sha256": "56de200afd100340dad548b1ded650c6bea0058a26182a510635c14dba68edc0",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6Vie4s/pZZjhgbv4s6evjrs1la7U8zU+sU0LjmcaZQzaikgKRx2WyMD2EYe4ZctU6UxV9Xg8f9s3hjSCBTCf70iQI=\ntrusted comment: timestamp:1772547840\tfile:osaurus.telegram-1.0.3-macos-arm64.zip\nw3ydLGaFVcu2QbgZb2cuEIT7lZ3qaZJlcu+MaW5kJvod9BdexARm0Nbaw6D6oG2pxFwPxWU/hav2+qxvV48KDg=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.4/osaurus.telegram-1.0.4-macos-arm64.zip",
+          "sha256": "ea2a168cea8faddd558a8c0d9aede521401b3f306c705049cb97c9af222e2f8b",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViXQv/bhHGOREnW6qIZUlCleDqSjN5eNS2bbFdAaZbduEhC7RNSCv0DFuc3BCYCZQ3TsfsqzWaQ2b4kIQd43HOAI=\ntrusted comment: timestamp:1772552126\tfile:osaurus.telegram-1.0.4-macos-arm64.zip\nnRIpu5JAzgIATfoZ3Rki/pB3ml3xSx8xAYhRnwtZkkKlRqCkBklI5QQy0pBxZNhcaJX4DCAp3I8qf/Fg3ANwAw=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.5",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.5/osaurus.telegram-1.0.5-macos-arm64.zip",
+          "sha256": "a86ccc7d975bab91b93fdd4ffd112b16719bb1c1680f14b3fa681d4ee694f51e",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VifdWgthi4/8Qcw5yTlR2mW0i/QUxQNEP6mSEddn8oxj7i/E5UGmPQ/hJsmJaE4Z6XnynMvk4gT0UWLoNXNzyGwI=\ntrusted comment: timestamp:1772556645\tfile:osaurus.telegram-1.0.5-macos-arm64.zip\nZ7pxJvLe97hDErKMkD9cRnrL+ZyyL9lN45kgM18ytYNnZM8MxPW9I1qGbTK0IPWigTWF54eKCGWVySOnptZBAg=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.6",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.6/osaurus.telegram-1.0.6-macos-arm64.zip",
+          "sha256": "78bb4fa2e499247b73e19487089723adb73ad70ad7bfe467f413bc41bdf4ce83",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViZA1r47jEHXrnRmNpbee3xxk13eWphqCB7ggyhnXiPcKYOeQWo1F1801I4Uq642LJpV6FYMVbxOKsnZBoKY8HQ8=\ntrusted comment: timestamp:1772559718\tfile:osaurus.telegram-1.0.6-macos-arm64.zip\nP9Yxd8z1X0Qpu7Whi1aMKjeDwCkKPEj7NwC4S63+UXT2riYZDkwjB9u2MDl3NuWFxFvI37Yrw5zTn7gCZJWNDw=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.7",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.7/osaurus.telegram-1.0.7-macos-arm64.zip",
+          "sha256": "8c62a2a9c33d1450109fe64206e90cead6ac276c526fcfa844414c1290ca184e",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViTrNXt0chPH8jZfBUQoaqVWuuBIjcIWo6H/44HCzLYQfFQRJc/oTZ2yEA9nyAnrZZYES9gLQjZEv7sB1o1hTsg4=\ntrusted comment: timestamp:1772560709\tfile:osaurus.telegram-1.0.7-macos-arm64.zip\nri3o7hk2nEyhK2Y93asDB/p3b4Scnq111Y1MnQcEbVJzB6R9eM21+0iRx3j6jTaVZBY0ued0EZklnMJB86O1Cg=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.8",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.8/osaurus.telegram-1.0.8-macos-arm64.zip",
+          "sha256": "532661857593c4fdd7b5a1289726a4c05aa8138c4b893fc783dcdf0558549a77",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViUv7QPtce7hXinBh5iTWhOyqCYftpNpE/pO1u+HZbkhWimW9ReUT++04nDLbL0D0WTNylX/s6S4ZZa48j4xrdAE=\ntrusted comment: timestamp:1772561692\tfile:osaurus.telegram-1.0.8-macos-arm64.zip\nSc0KJuAS67a73p1j9ZJrBL5oagS0vFoKLXKTbnkqF9/2lzTNzxRGuw7eltxvbKg24PKBLGflmtR+fAZC6SMKCA=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.9",
+      "release_date": "2026-03-03",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.0.9/osaurus.telegram-1.0.9-macos-arm64.zip",
+          "sha256": "cd4be1c9634e8ff542a391f613ea51544ed7e271d0718808f09956529dd50bdc",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VieANlXbgWowC3bpQOE6lJqKezmBd7DrfA6oqUo5ahac5sfxuvmnGVi95EfE5ssoiakdS1VSH/qvIGZdNCKnKBgU=\ntrusted comment: timestamp:1772563008\tfile:osaurus.telegram-1.0.9-macos-arm64.zip\n84lHWXy9GwOlZc2GqfHr76Ui1C/ZG71fM0AF8KkCPs0JkydVrMNEPuO97Nmw+Lwpf9B+P6WI7R7E9wbMR/poBA=="
+          }
+        }
+      ]
     }
   ],
   "docs": {
