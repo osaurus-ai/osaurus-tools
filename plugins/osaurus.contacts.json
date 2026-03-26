@@ -4,20 +4,26 @@
   "description": "Interact with macOS Contacts.app - get phone numbers, find contacts by name or phone",
   "homepage": "https://github.com/osaurus-ai/osaurus-contacts",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "get_all_numbers",
-        "description": "Get all contacts and their phone numbers"
+        "name": "find_contact_by_name",
+        "description": "Find full contact details (phone, email) for a contact by name"
+      },
+      {
+        "name": "find_contact_by_phone",
+        "description": "Find a contact name by their phone number"
       },
       {
         "name": "find_number",
         "description": "Find phone numbers for a contact by name"
       },
       {
-        "name": "find_contact_by_phone",
-        "description": "Find a contact name by their phone number"
+        "name": "get_all_numbers",
+        "description": "Get all contacts and their phone numbers"
       }
     ]
   },
@@ -57,6 +63,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2026-03-26",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-contacts/releases/download/1.0.3/osaurus.contacts-1.0.3-macos-arm64.zip",
+          "sha256": "a72f0f42f29ae5420352b21d30987d4bc73637e9ed722c54a19561dbccfeab6f",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VidnoqsWef4mweSu+fp0nAWyDsi8zn3ZDPa4C3nYMDudPC976kRWz08nGjphFsSZTbuwuMwU26/t/WdYo7k+5/go=\ntrusted comment: timestamp:1774536621\tfile:osaurus.contacts-1.0.3-macos-arm64.zip\nZKt1g2XczQKDhFb6+hwvjc27u5vdK6D9HdlQL9IFGEVUzMoX8xlyPp90kydMnMgNuoltn2JrC7RxbRYpW7k0Cw=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
