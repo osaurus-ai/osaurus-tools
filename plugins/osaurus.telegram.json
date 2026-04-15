@@ -22,6 +22,10 @@
       {
         "name": "telegram_send_file",
         "description": "Upload a file (photo or document) to a Telegram chat. Reads files from Osaurus artifact paths."
+      },
+      {
+        "name": "telegram_set_reaction",
+        "description": "Set an emoji reaction on a Telegram message. Can also remove a reaction by omitting the emoji."
       }
     ],
     "routes": [
@@ -295,6 +299,22 @@
           "min_macos": "15.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VieY2b+9uMDN2MOpvixnXIB5u4aEM3xqlXq2+3goUJPnL+EFsQtNRp4PE6BqjR+1Mi9oSOGw9lFutzL5RErELDwk=\ntrusted comment: timestamp:1774805004\tfile:osaurus.telegram-1.1.1-macos-arm64.zip\nURbPhPtI0MvsZHMjPdgmefeS14RnQDQtDmkOaGpl8OkorHI7PsOTMOv2D827tlCmB5bOiP6uHhHVbqRXrbGWAQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "release_date": "2026-04-14",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-telegram/releases/download/1.2.0/osaurus.telegram-1.2.0-macos-arm64.zip",
+          "sha256": "be4fc06d296ec3de31d7e02b57acd67c0baa6c5eed0ba0dd925d22a9abf817fc",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViTNESVWZSGnMSKxWwE0vur4mRsWhJ1HS2FclZMV1rnj2JxXeu3O1i1H778ByolcnnjsvNZSPNQnQtSPWyw6cfQI=\ntrusted comment: timestamp:1776191703\tfile:osaurus.telegram-1.2.0-macos-arm64.zip\n8reVRErvZoxEY7dczoldEJMpjDafT7HM7jaB5Ec9QD9AWR6/tC0ipLIX6ZdpoWKAVUbS8DNy96STcC9PKTSOAA=="
           }
         }
       ]
