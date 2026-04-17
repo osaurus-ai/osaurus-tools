@@ -1,0 +1,80 @@
+{
+  "plugin_id": "osaurus.resend",
+  "name": "Resend (Email)",
+  "description": "Send, receive, and manage email through Resend",
+  "homepage": "https://github.com/osaurus-ai/osaurus-resend",
+  "license": "MIT",
+  "authors": [],
+  "capabilities": {
+    "tools": [
+      {
+        "name": "resend_send",
+        "description": "Send a new email to start a new conversation. Use this when you need to email someone who is not part of the current thread (e.g. scheduling with a new contact, forwarding information to another person). Creates a new thread. The recipient will be able to reply back."
+      },
+      {
+        "name": "resend_reply",
+        "description": "Reply to an email in an existing thread. Sends to all thread participants by default (reply-all). Use the optional 'to' parameter to reply to only one specific person. Threading headers are handled automatically so the reply appears in the same conversation in the recipient's inbox. Any files produced during the current task are attached automatically."
+      },
+      {
+        "name": "resend_list_threads",
+        "description": "List email conversation threads. Returns thread summaries (subject, participants, labels, last message preview). Use this to find threads by participant email or label, or to see recent conversations. For full message content, follow up with resend_get_thread."
+      },
+      {
+        "name": "resend_get_thread",
+        "description": "Get the full details of a specific email thread, including complete message bodies in chronological order. Use this to read the full conversation, quote a previous message, or gather context before replying."
+      },
+      {
+        "name": "resend_label_thread",
+        "description": "Add or remove labels on a thread to organize conversations. Labels are freeform strings -- use whatever makes sense for the context (e.g. scheduling, invoices, urgent, follow-up). Threads can be filtered by label using resend_list_threads."
+      }
+    ],
+    "routes": [
+      {
+        "name": "webhook",
+        "description": "Resend webhook endpoint for inbound emails"
+      },
+      {
+        "name": "health",
+        "description": "Health check"
+      }
+    ]
+  },
+  "public_keys": {
+    "minisign": "RWTmCafy0+6ViS/ZFdYN+4v3ATECbUamgj4WDgGz7R2/DD1UEHp1eXwt"
+  },
+  "requires": {
+    "min_macos": "15.0",
+    "osaurus_min_version": "0.5.0"
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "release_date": "2026-04-17",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-resend/releases/download/1.0.0/osaurus.resend-1.0.0-macos-arm64.zip",
+          "sha256": "a580d1aeae52c95d063edc76b38e648fb5c6ea92047ca0a4cb2a757f47e0a3f1",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VicMJ8pdNFmWrCwo5xf5OdFWLd/jgytZES/VOYrVdOZiWY7/dbis1KY00Y7f5dVyN3giFPtWnFmV2uTDRHjGCVQA=\ntrusted comment: timestamp:1776428412\tfile:osaurus.resend-1.0.0-macos-arm64.zip\nwewNrJvs1ci8QcoYekqsWpKkhr/MQSmqoLTEV0f1O0xe2wAyy2gdrVfVMp6GJusD2WkX2j2X3CoMD38t5ERiDg=="
+          }
+        }
+      ]
+    }
+  ],
+  "docs": {
+    "readme": "README.md",
+    "links": [
+      {
+        "label": "Resend Docs",
+        "url": "https://resend.com/docs"
+      },
+      {
+        "label": "Resend API",
+        "url": "https://resend.com/docs/api-reference/introduction"
+      }
+    ]
+  }
+}
