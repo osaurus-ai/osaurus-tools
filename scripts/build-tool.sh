@@ -211,6 +211,38 @@ build_tool() {
 }
 EOF
 
+    # Sync the registry catalog with the dylib's manifest so the two never
+    # drift. Distribution-only fields (versions[], public_keys, homepage,
+    # docs, skill) are preserved by regenerate-catalogs.py.
+    print_info "Syncing plugins/${plugin_id}.json with dylib manifest..."
+    if python3 "$SCRIPT_DIR/regenerate-catalogs.py" --tool "$tool_name" >/dev/null; then
+        print_success "Registry catalog in sync"
+    else
+        print_error "Catalog regeneration failed for $plugin_id"
+        return 1
+    fi
+
+    # Belt-and-braces: confirm the registry's minisign public key matches the
+    # CI signing keypair before we publish anything. Skips when MINISIGN_PUBLIC_KEY
+    # is unset (local dev). A mismatch silently produces unverifiable artifacts.
+    local catalog_file="$ROOT_DIR/plugins/${plugin_id}.json"
+    if [ -n "${MINISIGN_PUBLIC_KEY:-}" ] && [ -f "$catalog_file" ]; then
+        local registry_pubkey
+        registry_pubkey=$(python3 -c "import json,sys; d=json.load(open('$catalog_file')); print(d.get('public_keys',{}).get('minisign',''))")
+        # MINISIGN_PUBLIC_KEY env may be the raw key or the 2-line file ("untrusted comment\n<key>");
+        # match against either form.
+        local env_pubkey
+        env_pubkey=$(echo "$MINISIGN_PUBLIC_KEY" | grep -oE 'RW[A-Za-z0-9+/=]{50,}' | head -1)
+        if [ -n "$registry_pubkey" ] && [ -n "$env_pubkey" ] && [ "$registry_pubkey" != "$env_pubkey" ]; then
+            print_error "Minisign key mismatch for $plugin_id!"
+            echo "  Registry public key: $registry_pubkey"
+            echo "  CI public key:       $env_pubkey"
+            echo "  Releasing now would silently produce unverifiable artifacts."
+            echo "  Either rotate the registry public_keys.minisign or fix MINISIGN_PUBLIC_KEY."
+            return 1
+        fi
+    fi
+
     echo ""
     print_success "Build complete!"
     echo ""

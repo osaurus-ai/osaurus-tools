@@ -2,26 +2,24 @@
 
 Central registry for community tools and plugins for [Osaurus](https://github.com/osaurus-ai/osaurus).
 
-## Official System Tools
+## Official Core Tools
 
-| Plugin ID            | Description                            | Tools                                                                                                                                                                                                                 |
-| -------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `osaurus.time`       | Time and date utilities                | `current_time`, `format_date`                                                                                                                                                                                         |
-| `osaurus.git`        | Git repository utilities               | `git_status`, `git_log`, `git_diff`, `git_branch`                                                                                                                                                                     |
-| `osaurus.browser`    | Agent-friendly headless WebKit browser | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_select`, `browser_hover`, `browser_scroll`, `browser_press_key`, `browser_wait_for`, `browser_screenshot`, `browser_execute_script` |
-| `osaurus.fetch`      | HTTP client for web requests           | `fetch`, `fetch_json`, `fetch_html`, `download`                                                                                                                                                                       |
-| `osaurus.search`     | Web search via DuckDuckGo              | `search`, `search_news`, `search_images`                                                                                                                                                                              |
-| `osaurus.filesystem` | File system operations                 | `read_file`, `write_file`, `list_directory`, `create_directory`, `delete_file`, `move_file`, `search_files`, `get_file_info`                                                                                          |
+| Plugin ID         | Description                                                                                                                                                            | Tools                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `osaurus.time`    | Date and time arithmetic across timezones                                                                                                                              | `current_time`, `format_date`, `parse_date`, `convert_timezone`, `add_duration`, `diff_dates`, `list_timezones`                                                                                                                                                                                                                                                                                                                                                    |
+| `osaurus.fetch`   | HTTP client with SSRF guard, response size limits, and Readability-style HTML extraction                                                                               | `fetch`, `fetch_json`, `fetch_html`, `download`                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `osaurus.search`  | Web search via pluggable backends (free scraping by default; Tavily / Brave / Serper / Google CSE / Kagi / You.com via API key)                                        | `search`, `search_news`, `search_images`, `search_and_extract`                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `osaurus.browser` | Agent-friendly headless WebKit browser with ARIA-YAML snapshots, tabs, console/network inspection, dialogs, file upload, viewport/UA control, cookies, and lock/unlock | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_select`, `browser_hover`, `browser_scroll`, `browser_do`, `browser_press_key`, `browser_wait_for`, `browser_screenshot`, `browser_execute_script`, `browser_tabs`, `browser_console_messages`, `browser_network_requests`, `browser_handle_dialog`, `browser_file_upload`, `browser_set_viewport`, `browser_set_user_agent`, `browser_cookies`, `browser_lock`, `browser_unlock` |
+
+> Filesystem and Git operations are first-class in the host app via the working-folder context (and the sandbox VM for shell). The `osaurus.filesystem` and `osaurus.git` plugins were removed in `2.0.0` — see [CHANGELOG.md](CHANGELOG.md).
 
 ### Installation
 
 ```bash
 osaurus tools install osaurus.time
-osaurus tools install osaurus.git
-osaurus tools install osaurus.browser
 osaurus tools install osaurus.fetch
 osaurus tools install osaurus.search
-osaurus tools install osaurus.filesystem
+osaurus tools install osaurus.browser
 ```
 
 ## Adding a Plugin to the Registry
@@ -124,20 +122,20 @@ mycompany.mytool-1.0.0.zip
 
 ### Optional Fields
 
-| Field                    | Description                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------ |
-| `homepage`               | Plugin homepage or repository URL                                                          |
-| `license`                | License (e.g., "MIT", "Apache-2.0")                                                       |
-| `authors`                | List of author names                                                                       |
-| `capabilities`           | Tools, skills, and routes descriptions                                                     |
-| `capabilities.tools`     | Array of `{name, description}` — the tools the plugin provides                            |
-| `capabilities.skills`    | Array of `{name, description}` — AI skills bundled with the plugin                        |
-| `capabilities.routes`    | Array of `{name, description}` — HTTP routes the plugin exposes (v2)                      |
-| `docs`                   | Documentation metadata                                                                     |
-| `docs.readme`            | Path to README file in the plugin bundle                                                   |
-| `docs.changelog`         | Path to CHANGELOG file in the plugin bundle                                                |
-| `docs.links`             | Array of `{label, url}` — external documentation links                                    |
-| `secrets`                | Array of secret definitions for API keys/credentials (see [Plugin Secrets](#plugin-secrets))|
+| Field                 | Description                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| `homepage`            | Plugin homepage or repository URL                                                            |
+| `license`             | License (e.g., "MIT", "Apache-2.0")                                                          |
+| `authors`             | List of author names                                                                         |
+| `capabilities`        | Tools, skills, and routes descriptions                                                       |
+| `capabilities.tools`  | Array of `{name, description}` — the tools the plugin provides                               |
+| `capabilities.skills` | Array of `{name, description}` — AI skills bundled with the plugin                           |
+| `capabilities.routes` | Array of `{name, description}` — HTTP routes the plugin exposes (v2)                         |
+| `docs`                | Documentation metadata                                                                       |
+| `docs.readme`         | Path to README file in the plugin bundle                                                     |
+| `docs.changelog`      | Path to CHANGELOG file in the plugin bundle                                                  |
+| `docs.links`          | Array of `{label, url}` — external documentation links                                       |
+| `secrets`             | Array of secret definitions for API keys/credentials (see [Plugin Secrets](#plugin-secrets)) |
 
 ### Version Entry
 
@@ -151,15 +149,15 @@ mycompany.mytool-1.0.0.zip
 
 ### Artifact Entry
 
-| Field       | Required | Description                                   |
-| ----------- | -------- | --------------------------------------------- |
-| `os`        | Yes      | Operating system (`macos`)                    |
-| `arch`      | Yes      | CPU architecture (`arm64`)                    |
-| `url`       | Yes      | Direct download URL for the zip               |
-| `sha256`    | Yes      | SHA-256 checksum                              |
-| `minisign`  | Yes      | Minisign signature object (`signature`)       |
-| `min_macos` | No       | Minimum macOS version (e.g., "13.0")          |
-| `size`      | No       | File size in bytes                            |
+| Field       | Required | Description                             |
+| ----------- | -------- | --------------------------------------- |
+| `os`        | Yes      | Operating system (`macos`)              |
+| `arch`      | Yes      | CPU architecture (`arm64`)              |
+| `url`       | Yes      | Direct download URL for the zip         |
+| `sha256`    | Yes      | SHA-256 checksum                        |
+| `minisign`  | Yes      | Minisign signature object (`signature`) |
+| `min_macos` | No       | Minimum macOS version (e.g., "13.0")    |
+| `size`      | No       | File size in bytes                      |
 
 ## v2 Plugin Capabilities
 
@@ -237,21 +235,21 @@ Use the reusable workflow to automatically build, sign, release, and register yo
 
 Your plugin's `get_manifest()` function must return valid JSON with these fields:
 
-| Field                  | Required | Description                                                                |
-| ---------------------- | -------- | -------------------------------------------------------------------------- |
-| `plugin_id`            | Yes      | Unique identifier (e.g., `myname.weather`)                                 |
-| `description`          | Yes      | Brief description of what the plugin does                                  |
-| `capabilities.tools`   | Yes      | Array of tool definitions                                                  |
-| `name`                 | No       | Display name (defaults to plugin_id suffix)                                |
-| `license`              | No       | License identifier (defaults to `MIT`)                                     |
-| `authors`              | No       | Array of author names (defaults to repo owner)                             |
-| `min_macos`            | No       | Minimum macOS version (defaults to `13.0`)                                 |
-| `min_osaurus`          | No       | Minimum Osaurus version (defaults to `0.5.0`)                              |
-| `secrets`              | No       | Array of secret definitions for API keys/credentials                       |
-| `capabilities.routes`  | No       | Array of HTTP route definitions (v2)                                       |
-| `capabilities.config`  | No       | Configuration UI schema rendered in the Management window (v2)             |
-| `capabilities.web`     | No       | Static web serving declaration (`static_dir`, `entry`, `mount`, `auth`) (v2)|
-| `docs`                 | No       | Documentation metadata (`readme`, `changelog`, `links`) (v2)              |
+| Field                 | Required | Description                                                                  |
+| --------------------- | -------- | ---------------------------------------------------------------------------- |
+| `plugin_id`           | Yes      | Unique identifier (e.g., `myname.weather`)                                   |
+| `description`         | Yes      | Brief description of what the plugin does                                    |
+| `capabilities.tools`  | Yes      | Array of tool definitions                                                    |
+| `name`                | No       | Display name (defaults to plugin_id suffix)                                  |
+| `license`             | No       | License identifier (defaults to `MIT`)                                       |
+| `authors`             | No       | Array of author names (defaults to repo owner)                               |
+| `min_macos`           | No       | Minimum macOS version (defaults to `13.0`)                                   |
+| `min_osaurus`         | No       | Minimum Osaurus version (defaults to `0.5.0`)                                |
+| `secrets`             | No       | Array of secret definitions for API keys/credentials                         |
+| `capabilities.routes` | No       | Array of HTTP route definitions (v2)                                         |
+| `capabilities.config` | No       | Configuration UI schema rendered in the Management window (v2)               |
+| `capabilities.web`    | No       | Static web serving declaration (`static_dir`, `entry`, `mount`, `auth`) (v2) |
+| `docs`                | No       | Documentation metadata (`readme`, `changelog`, `links`) (v2)                 |
 
 Note: Version is extracted from the Git tag (e.g., `v1.0.0` or `1.0.0`), not from the manifest.
 
@@ -423,7 +421,6 @@ osaurus manifest extract build/time/staging/*.dylib | jq .
    ```
 
 2. Implement the plugin using the [C ABI](https://github.com/osaurus-ai/osaurus/blob/main/docs/PLUGIN_AUTHORING.md). The manifest is embedded directly in `Plugin.swift` via the `get_manifest` function. See existing tools for examples.
-
    - **v1 plugins** export `osaurus_plugin_entry` — sufficient for tools-only plugins.
    - **v2 plugins** export `osaurus_plugin_entry_v2(const osr_host_api* host)` — required for routes, config, web, storage, agent dispatch, inference, or HTTP. The host API provides 15 callbacks across 7 capability groups (config store, data store, logging, agent dispatch, inference, models, HTTP client). The v2 ABI is a superset of v1; Osaurus falls back to v1 if the v2 symbol is not found.
 

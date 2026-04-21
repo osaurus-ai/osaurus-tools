@@ -8,16 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       tool:
-        description: "Tool to build (time, git, browser, fetch, search, filesystem, all)"
+        description: "Tool to build (time, browser, fetch, search, all)"
         required: true
         type: choice
         options:
           - time
-          - git
           - browser
           - fetch
           - search
-          - filesystem
           - all
       version:
         description: "Version (e.g., 1.0.0)"

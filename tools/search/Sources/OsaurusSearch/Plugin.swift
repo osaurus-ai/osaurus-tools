@@ -1,333 +1,610 @@
 import Foundation
 
-// MARK: - HTTP Helper
+// MARK: - Response Envelope
 
-/// User agents to rotate through for requests
-private let userAgents = [
+@inline(__always)
+private func okResponse(_ data: [String: Any], warnings: [String] = []) -> String {
+    var payload: [String: Any] = ["ok": true, "data": data]
+    if !warnings.isEmpty { payload["warnings"] = warnings }
+    return jsonString(payload)
+}
+
+@inline(__always)
+private func errorResponse(code: String, message: String, hint: String? = nil) -> String {
+    var error: [String: Any] = ["code": code, "message": message]
+    if let hint = hint { error["hint"] = hint }
+    return jsonString(["ok": false, "error": error])
+}
+
+private func jsonString(_ obj: Any) -> String {
+    guard JSONSerialization.isValidJSONObject(obj),
+        let data = try? JSONSerialization.data(
+            withJSONObject: obj,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ),
+        let str = String(data: data, encoding: .utf8)
+    else {
+        return #"{"ok":false,"error":{"code":"INTERNAL","message":"Failed to serialize response"}}"#
+    }
+    return str
+}
+
+private struct ToolError: Error {
+    let code: String
+    let message: String
+    let hint: String?
+    init(code: String, message: String, hint: String? = nil) {
+        self.code = code
+        self.message = message
+        self.hint = hint
+    }
+}
+
+private func decodeArgs<T: Decodable>(_ raw: String) throws -> T {
+    guard let data = raw.data(using: .utf8) else {
+        throw ToolError(code: "INVALID_ARGS", message: "payload is not valid UTF-8")
+    }
+    do {
+        return try JSONDecoder().decode(T.self, from: data)
+    } catch {
+        throw ToolError(
+            code: "INVALID_ARGS",
+            message: "Could not decode arguments: \(error.localizedDescription)"
+        )
+    }
+}
+
+/// Wraps a backend error message so we can return `Result<T, BackendError>` without
+/// needing to make `String: Error` (which is invasive at the module level).
+struct BackendError: Error, Equatable {
+    let message: String
+    init(_ message: String) { self.message = message }
+}
+
+// MARK: - HTTP
+
+let userAgents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 ]
 
-/// Rate limit detection patterns in HTML responses
-private let rateLimitPatterns = [
-    "you appear to be a bot",
-    "unusual traffic",
-    "rate limit",
-    "too many requests",
-    "please try again later",
-    "captcha",
-    "blocked",
-    "access denied",
-]
-
-/// Check if a response indicates rate limiting
-private func isRateLimited(response: HTTPURLResponse?, data: Data?) -> Bool {
-    // Check HTTP status code
-    if let statusCode = response?.statusCode {
-        if statusCode == 429 || statusCode == 403 || statusCode == 503 {
-            return true
-        }
-    }
-
-    // Check response body for rate limit indicators
-    if let data = data, let html = String(data: data, encoding: .utf8) {
-        let lowercased = html.lowercased()
-        for pattern in rateLimitPatterns {
-            if lowercased.contains(pattern) {
-                return true
-            }
-        }
-    }
-
-    return false
-}
-
-/// Add jitter to a delay to avoid thundering herd
-private func addJitter(to delay: TimeInterval) -> TimeInterval {
-    let jitter = Double.random(in: 0.0...0.5)
-    return delay * (1.0 + jitter)
-}
-
-private func performRequest(
+private func httpRequest(
     url: String,
-    headers: [String: String]? = nil,
-    timeout: TimeInterval = 30
-) -> (data: Data?, response: HTTPURLResponse?, error: String?) {
+    method: String = "GET",
+    headers: [String: String] = [:],
+    body: Data? = nil,
+    timeout: TimeInterval = 25
+) -> (status: Int, data: Data?, error: String?) {
+    guard let u = URL(string: url) else { return (0, nil, "Invalid URL: \(url)") }
+    var req = URLRequest(url: u, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+    req.httpMethod = method
+    req.httpBody = body
 
-    guard let requestURL = URL(string: url) else {
-        return (nil, nil, "Invalid URL: \(url)")
-    }
-
-    var request = URLRequest(url: requestURL)
-    request.httpMethod = "GET"
-    request.timeoutInterval = timeout
-
-    // Set default headers to mimic a browser with random user agent
-    let userAgent = userAgents.randomElement() ?? userAgents[0]
-    request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-    request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
-    request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
-    request.setValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
-
-    headers?.forEach { key, value in
-        request.setValue(value, forHTTPHeaderField: key)
-    }
+    var combined: [String: String] = [
+        "User-Agent": userAgents.randomElement() ?? userAgents[0],
+        "Accept-Language": "en-US,en;q=0.9",
+    ]
+    for (k, v) in headers { combined[k] = v }
+    for (k, v) in combined { req.setValue(v, forHTTPHeaderField: k) }
 
     let semaphore = DispatchSemaphore(value: 0)
-    var resultData: Data?
-    var resultResponse: HTTPURLResponse?
-    var resultError: String?
-
-    let task = URLSession.shared.dataTask(with: request) { data, response, error in
-        if let error = error {
-            resultError = error.localizedDescription
-        } else {
-            resultData = data
-            resultResponse = response as? HTTPURLResponse
-        }
+    var status = 0
+    var data: Data?
+    var error: String?
+    let task = URLSession.shared.dataTask(with: req) { d, r, e in
+        if let e = e { error = e.localizedDescription }
+        data = d
+        if let http = r as? HTTPURLResponse { status = http.statusCode }
         semaphore.signal()
     }
-
     task.resume()
     _ = semaphore.wait(timeout: .now() + timeout + 5)
-
-    return (resultData, resultResponse, resultError)
+    return (status, data, error)
 }
 
-/// Perform request with retry logic and exponential backoff
-private func performRequestWithRetry(
-    url: String,
-    headers: [String: String]? = nil,
-    timeout: TimeInterval = 30,
-    maxRetries: Int = 3
-) -> (data: Data?, response: HTTPURLResponse?, error: String?, rateLimited: Bool) {
+// MARK: - HTML helpers
 
-    var lastData: Data?
-    var lastResponse: HTTPURLResponse?
-    var lastError: String?
-    var wasRateLimited = false
-
-    for attempt in 0..<maxRetries {
-        let result = performRequest(url: url, headers: headers, timeout: timeout)
-        lastData = result.data
-        lastResponse = result.response
-        lastError = result.error
-
-        // Check for rate limiting
-        if isRateLimited(response: result.response, data: result.data) {
-            wasRateLimited = true
-
-            // Don't retry on last attempt
-            if attempt < maxRetries - 1 {
-                // Exponential backoff: 1s, 2s, 4s with jitter
-                let baseDelay = pow(2.0, Double(attempt))
-                let delay = addJitter(to: baseDelay)
-                Thread.sleep(forTimeInterval: delay)
-                continue
-            }
-        }
-
-        // If we got a successful response (2xx status), return it
-        if let statusCode = result.response?.statusCode, (200..<300).contains(statusCode) {
-            return (result.data, result.response, result.error, false)
-        }
-
-        // If there was a network error, retry with backoff
-        if result.error != nil && attempt < maxRetries - 1 {
-            let baseDelay = pow(2.0, Double(attempt))
-            let delay = addJitter(to: baseDelay)
-            Thread.sleep(forTimeInterval: delay)
-            continue
-        }
-
-        // Got a response (even if not 2xx), return it
-        if result.response != nil {
-            return (result.data, result.response, result.error, wasRateLimited)
-        }
-    }
-
-    return (lastData, lastResponse, lastError, wasRateLimited)
-}
-
-private func escapeJSON(_ s: String) -> String {
-    return
-        s
-        .replacingOccurrences(of: "\\", with: "\\\\")
-        .replacingOccurrences(of: "\"", with: "\\\"")
-        .replacingOccurrences(of: "\n", with: "\\n")
-        .replacingOccurrences(of: "\r", with: "\\r")
-        .replacingOccurrences(of: "\t", with: "\\t")
-}
-
-private func urlEncode(_ s: String) -> String {
+func urlEncode(_ s: String) -> String {
     return s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
 }
 
-private func decodeHTMLEntities(_ s: String) -> String {
+func decodeHTMLEntities(_ s: String) -> String {
     var result = s
-    let entities = [
-        "&amp;": "&",
-        "&lt;": "<",
-        "&gt;": ">",
-        "&quot;": "\"",
-        "&apos;": "'",
-        "&#39;": "'",
-        "&nbsp;": " ",
-        "&#x27;": "'",
-        "&#x2F;": "/",
-        "&mdash;": "—",
-        "&ndash;": "–",
-        "&hellip;": "…",
+    let named: [(String, String)] = [
+        ("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
+        ("&quot;", "\""), ("&apos;", "'"), ("&#39;", "'"),
+        ("&nbsp;", " "), ("&#x27;", "'"), ("&#x2F;", "/"),
+        ("&mdash;", "—"), ("&ndash;", "–"), ("&hellip;", "…"),
+        ("&ldquo;", "\u{201C}"), ("&rdquo;", "\u{201D}"),
+        ("&lsquo;", "\u{2018}"), ("&rsquo;", "\u{2019}"),
     ]
-    for (entity, char) in entities {
-        result = result.replacingOccurrences(of: entity, with: char)
+    for (entity, replacement) in named {
+        result = result.replacingOccurrences(of: entity, with: replacement, options: .caseInsensitive)
     }
-    // Handle numeric entities
-    if let regex = try? NSRegularExpression(pattern: "&#(\\d+);", options: []) {
-        let range = NSRange(result.startIndex..., in: result)
-        result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+    if let regex = try? NSRegularExpression(pattern: "&#(x[0-9a-fA-F]+|[0-9]+);", options: []) {
+        let nsResult = NSMutableString(string: result)
+        let matches = regex.matches(
+            in: result,
+            range: NSRange(result.startIndex..., in: result)
+        ).reversed()
+        for match in matches {
+            guard let range = Range(match.range(at: 1), in: result) else { continue }
+            let raw = String(result[range])
+            let scalar: UInt32?
+            if raw.hasPrefix("x") || raw.hasPrefix("X") {
+                scalar = UInt32(raw.dropFirst(), radix: 16)
+            } else {
+                scalar = UInt32(raw)
+            }
+            if let s = scalar, let u = UnicodeScalar(s) {
+                nsResult.replaceCharacters(in: match.range, with: String(u))
+            }
+        }
+        result = nsResult as String
     }
     return result
 }
 
-private func stripHTML(_ html: String) -> String {
-    var text = html
-    // Remove tags
+func stripHTML(_ html: String) -> String {
+    var t = html
     if let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: []) {
-        text = regex.stringByReplacingMatches(
-            in: text,
-            range: NSRange(text.startIndex..., in: text),
-            withTemplate: ""
+        t = regex.stringByReplacingMatches(in: t, range: NSRange(t.startIndex..., in: t), withTemplate: "")
+    }
+    return decodeHTMLEntities(t)
+        .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func sourceDomain(of urlStr: String) -> String? {
+    guard let u = URL(string: urlStr), let host = u.host else { return nil }
+    return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+}
+
+/// DDG often wraps result URLs with `?uddg=<encoded-url>`. Unwrap to the real target.
+func unwrapDDG(_ url: String) -> String {
+    guard url.contains("uddg="),
+        let comp = URLComponents(string: url.hasPrefix("/") ? "https://duckduckgo.com\(url)" : url),
+        let item = comp.queryItems?.first(where: { $0.name == "uddg" }),
+        let value = item.value,
+        let decoded = value.removingPercentEncoding
+    else { return url }
+    return decoded
+}
+
+// MARK: - Result types
+
+struct SearchHit {
+    var title: String
+    var url: String
+    var snippet: String
+    var published_date: String?
+    var source_domain: String?
+    var engine: String
+
+    func toDict(rank: Int) -> [String: Any] {
+        var d: [String: Any] = [
+            "rank": rank,
+            "title": title,
+            "url": url,
+            "snippet": snippet,
+            "engine": engine,
+        ]
+        if let date = published_date { d["published_date"] = date }
+        if let dom = source_domain ?? sourceDomain(of: url) { d["source_domain"] = dom }
+        return d
+    }
+}
+
+struct ImageHit {
+    var title: String
+    var url: String
+    var image_url: String
+    var thumbnail_url: String?
+    var width: Int?
+    var height: Int?
+    var source_domain: String?
+    var engine: String
+
+    func toDict(rank: Int) -> [String: Any] {
+        var d: [String: Any] = [
+            "rank": rank,
+            "title": title,
+            "url": url,
+            "image_url": image_url,
+            "engine": engine,
+        ]
+        if let t = thumbnail_url { d["thumbnail_url"] = t }
+        if let w = width { d["width"] = w }
+        if let h = height { d["height"] = h }
+        if let dom = source_domain ?? sourceDomain(of: url) { d["source_domain"] = dom }
+        return d
+    }
+}
+
+enum Vertical: String {
+    case web, news
+}
+
+// MARK: - Backend selection
+
+struct SearchParams {
+    let query: String
+    let max_results: Int
+    let offset: Int
+    let site: String?
+    let filetype: String?
+    let time_range: String?  // "d" | "w" | "m" | "y" | nil
+    let region: String?
+    let provider: String?
+    let secrets: [String: String]
+    let vertical: Vertical
+}
+
+func providerCascade(secrets: [String: String], requested: String?, vertical: Vertical) -> [String] {
+    if let r = requested?.lowercased() { return [r] }
+    var order: [String] = []
+    if secrets["TAVILY_API_KEY"] != nil { order.append("tavily") }
+    if secrets["BRAVE_SEARCH_API_KEY"] != nil { order.append("brave_api") }
+    if secrets["SERPER_API_KEY"] != nil { order.append("serper") }
+    if secrets["GOOGLE_CSE_API_KEY"] != nil && secrets["GOOGLE_CSE_CX"] != nil { order.append("google_cse") }
+    if secrets["KAGI_API_KEY"] != nil { order.append("kagi") }
+    if secrets["YOU_API_KEY"] != nil { order.append("you") }
+    // Free fallbacks
+    order.append(contentsOf: ["ddg", "brave_html", "bing_html"])
+    if vertical == .news {
+        // No image-specific extras here.
+    }
+    return order
+}
+
+func augmentedQuery(_ p: SearchParams) -> String {
+    var q = p.query
+    if let site = p.site, !site.isEmpty { q += " site:\(site)" }
+    if let ft = p.filetype, !ft.isEmpty { q += " filetype:\(ft)" }
+    return q
+}
+
+// MARK: - Backend implementations (web/news)
+
+private func runBackend(_ provider: String, params: SearchParams) -> Result<[SearchHit], BackendError> {
+    switch provider {
+    case "tavily": return tavilySearch(params)
+    case "brave_api": return braveAPISearch(params)
+    case "serper": return serperSearch(params)
+    case "google_cse": return googleCSESearch(params)
+    case "kagi": return kagiSearch(params)
+    case "you": return youSearch(params)
+    case "ddg": return ddgScrape(params)
+    case "brave_html": return braveScrape(params)
+    case "bing_html": return bingScrape(params)
+    default: return .failure(BackendError("Unknown provider: \(provider)"))
+    }
+}
+
+// --- API backends ---
+
+private func tavilySearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["TAVILY_API_KEY"] else { return .failure(BackendError("TAVILY_API_KEY not configured")) }
+    var body: [String: Any] = [
+        "api_key": key,
+        "query": augmentedQuery(p),
+        "max_results": p.max_results,
+        "search_depth": "basic",
+        "topic": p.vertical == .news ? "news" : "general",
+    ]
+    if let tr = mapTavilyTime(p.time_range) { body["time_range"] = tr }
+    guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+        return .failure(BackendError("Failed to encode Tavily request"))
+    }
+    let res = httpRequest(
+        url: "https://api.tavily.com/search",
+        method: "POST",
+        headers: ["Content-Type": "application/json"],
+        body: bodyData
+    )
+    if let err = res.error { return .failure(BackendError("Tavily: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let arr = json["results"] as? [[String: Any]]
+    else { return .failure(BackendError("Tavily returned status \(res.status)")) }
+
+    let hits = arr.prefix(p.max_results).map { item -> SearchHit in
+        SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["url"] as? String) ?? "",
+            snippet: (item["content"] as? String) ?? "",
+            published_date: item["published_date"] as? String,
+            source_domain: nil,
+            engine: "tavily"
         )
     }
-    return decodeHTMLEntities(text).trimmingCharacters(in: .whitespacesAndNewlines)
+    return .success(Array(hits))
 }
 
-// MARK: - DuckDuckGo Search Parser
-
-private struct SearchResult {
-    let title: String
-    let url: String
-    let snippet: String
+func mapTavilyTime(_ tr: String?) -> String? {
+    switch tr?.lowercased() {
+    case "d", "day": return "day"
+    case "w", "week": return "week"
+    case "m", "month": return "month"
+    case "y", "year": return "year"
+    default: return nil
+    }
 }
 
-private struct NewsResult {
-    let title: String
-    let url: String
-    let snippet: String
-    let source: String
-    let date: String
+private func braveAPISearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["BRAVE_SEARCH_API_KEY"] else {
+        return .failure(BackendError("BRAVE_SEARCH_API_KEY not configured"))
+    }
+    var url =
+        (p.vertical == .news
+            ? "https://api.search.brave.com/res/v1/news/search"
+            : "https://api.search.brave.com/res/v1/web/search")
+    var qs = "q=\(urlEncode(augmentedQuery(p)))&count=\(p.max_results)&offset=\(p.offset)"
+    if let tr = mapBraveTime(p.time_range) { qs += "&freshness=\(tr)" }
+    url += "?" + qs
+    let res = httpRequest(
+        url: url,
+        headers: ["X-Subscription-Token": key, "Accept": "application/json"]
+    )
+    if let err = res.error { return .failure(BackendError("Brave API: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return .failure(BackendError("Brave API returned status \(res.status)")) }
+
+    let resultsKey = p.vertical == .news ? "results" : "web"
+    let items: [[String: Any]]
+    if p.vertical == .news, let arr = json[resultsKey] as? [[String: Any]] {
+        items = arr
+    } else if let web = json["web"] as? [String: Any], let arr = web["results"] as? [[String: Any]] {
+        items = arr
+    } else {
+        return .success([])
+    }
+    let hits = items.prefix(p.max_results).map { item -> SearchHit in
+        SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["url"] as? String) ?? "",
+            snippet: (item["description"] as? String) ?? "",
+            published_date: item["page_age"] as? String ?? item["age"] as? String,
+            source_domain: nil,
+            engine: "brave_api"
+        )
+    }
+    return .success(Array(hits))
 }
 
-private struct ImageResult {
-    let title: String
-    let url: String
-    let imageUrl: String
-    let thumbnailUrl: String
-    let width: Int
-    let height: Int
+func mapBraveTime(_ tr: String?) -> String? {
+    switch tr?.lowercased() {
+    case "d", "day": return "pd"
+    case "w", "week": return "pw"
+    case "m", "month": return "pm"
+    case "y", "year": return "py"
+    default: return nil
+    }
 }
 
-/// Parse DuckDuckGo HTML search results
-private func parseDDGResults(html: String, maxResults: Int) -> [SearchResult] {
-    var results: [SearchResult] = []
+private func serperSearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["SERPER_API_KEY"] else { return .failure(BackendError("SERPER_API_KEY not configured")) }
+    var body: [String: Any] = [
+        "q": augmentedQuery(p),
+        "num": p.max_results,
+        "page": (p.offset / max(1, p.max_results)) + 1,
+    ]
+    if let tr = mapSerperTime(p.time_range) { body["tbs"] = tr }
+    guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+        return .failure(BackendError("Failed to encode Serper request"))
+    }
+    let endpoint = p.vertical == .news ? "https://google.serper.dev/news" : "https://google.serper.dev/search"
+    let res = httpRequest(
+        url: endpoint,
+        method: "POST",
+        headers: ["Content-Type": "application/json", "X-API-KEY": key],
+        body: bodyData
+    )
+    if let err = res.error { return .failure(BackendError("Serper: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return .failure(BackendError("Serper returned status \(res.status)")) }
 
-    // DuckDuckGo Lite HTML pattern: results are in <a class="result-link"> tags
-    // For regular DDG: results are in result__* classes
+    let key2 = p.vertical == .news ? "news" : "organic"
+    guard let arr = json[key2] as? [[String: Any]] else { return .success([]) }
+    let hits = arr.prefix(p.max_results).map { item -> SearchHit in
+        SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["link"] as? String) ?? "",
+            snippet: (item["snippet"] as? String) ?? "",
+            published_date: item["date"] as? String,
+            source_domain: item["source"] as? String,
+            engine: "serper"
+        )
+    }
+    return .success(Array(hits))
+}
 
-    // Pattern for DDG lite version
-    let resultPattern = "<a[^>]*class=\"result-link\"[^>]*href=\"([^\"]+)\"[^>]*>([^<]+)</a>"
-    _ = "<td[^>]*class=\"result-snippet\"[^>]*>([^<]+(?:<[^>]+>[^<]*)*)</td>"  // snippet pattern for future use
+func mapSerperTime(_ tr: String?) -> String? {
+    switch tr?.lowercased() {
+    case "d", "day": return "qdr:d"
+    case "w", "week": return "qdr:w"
+    case "m", "month": return "qdr:m"
+    case "y", "year": return "qdr:y"
+    default: return nil
+    }
+}
 
-    // Try lite pattern first
-    if let linkRegex = try? NSRegularExpression(pattern: resultPattern, options: .caseInsensitive) {
-        let range = NSRange(html.startIndex..., in: html)
-        let matches = linkRegex.matches(in: html, range: range)
+private func googleCSESearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["GOOGLE_CSE_API_KEY"], let cx = p.secrets["GOOGLE_CSE_CX"] else {
+        return .failure(BackendError("GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX must both be configured"))
+    }
+    let start = p.offset + 1
+    var url = "https://www.googleapis.com/customsearch/v1?key=\(urlEncode(key))&cx=\(urlEncode(cx))"
+    url += "&q=\(urlEncode(augmentedQuery(p)))&num=\(min(p.max_results, 10))&start=\(start)"
+    if let tr = mapCSETime(p.time_range) { url += "&dateRestrict=\(tr)" }
+    if p.vertical == .news { url += "&searchType=&tbm=nws" }
+    let res = httpRequest(url: url, headers: ["Accept": "application/json"])
+    if let err = res.error { return .failure(BackendError("Google CSE: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let items = json["items"] as? [[String: Any]]
+    else { return .failure(BackendError("Google CSE returned status \(res.status)")) }
 
-        for match in matches.prefix(maxResults) {
-            if let urlRange = Range(match.range(at: 1), in: html),
-                let titleRange = Range(match.range(at: 2), in: html)
-            {
-                let url = decodeHTMLEntities(String(html[urlRange]))
-                let title = stripHTML(String(html[titleRange]))
-                results.append(SearchResult(title: title, url: url, snippet: ""))
+    let hits = items.prefix(p.max_results).map { item -> SearchHit in
+        SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["link"] as? String) ?? "",
+            snippet: (item["snippet"] as? String) ?? "",
+            published_date: nil,
+            source_domain: item["displayLink"] as? String,
+            engine: "google_cse"
+        )
+    }
+    return .success(Array(hits))
+}
+
+func mapCSETime(_ tr: String?) -> String? {
+    switch tr?.lowercased() {
+    case "d", "day": return "d1"
+    case "w", "week": return "w1"
+    case "m", "month": return "m1"
+    case "y", "year": return "y1"
+    default: return nil
+    }
+}
+
+private func kagiSearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["KAGI_API_KEY"] else { return .failure(BackendError("KAGI_API_KEY not configured")) }
+    var url = "https://kagi.com/api/v0/search?q=\(urlEncode(augmentedQuery(p)))&limit=\(p.max_results)"
+    if p.offset > 0 { url += "&offset=\(p.offset)" }
+    let res = httpRequest(url: url, headers: ["Authorization": "Bot \(key)"])
+    if let err = res.error { return .failure(BackendError("Kagi: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let arr = json["data"] as? [[String: Any]]
+    else { return .failure(BackendError("Kagi returned status \(res.status)")) }
+
+    let hits = arr.compactMap { item -> SearchHit? in
+        // Kagi returns mixed types; only include normal results (t==0).
+        guard let t = item["t"] as? Int, t == 0 else { return nil }
+        return SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["url"] as? String) ?? "",
+            snippet: (item["snippet"] as? String) ?? "",
+            published_date: item["published"] as? String,
+            source_domain: nil,
+            engine: "kagi"
+        )
+    }
+    return .success(Array(hits.prefix(p.max_results)))
+}
+
+private func youSearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["YOU_API_KEY"] else { return .failure(BackendError("YOU_API_KEY not configured")) }
+    let endpoint =
+        p.vertical == .news
+        ? "https://api.ydc-index.io/news"
+        : "https://api.ydc-index.io/search"
+    var url = "\(endpoint)?query=\(urlEncode(augmentedQuery(p)))&num_web_results=\(p.max_results)"
+    if let tr = mapYouTime(p.time_range) { url += "&recency=\(tr)" }
+    let res = httpRequest(url: url, headers: ["X-API-Key": key, "Accept": "application/json"])
+    if let err = res.error { return .failure(BackendError("You.com: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return .failure(BackendError("You.com returned status \(res.status)")) }
+
+    let arr: [[String: Any]]
+    if p.vertical == .news, let news = json["news"] as? [String: Any], let r = news["results"] as? [[String: Any]] {
+        arr = r
+    } else if let hits = json["hits"] as? [[String: Any]] {
+        arr = hits
+    } else {
+        arr = []
+    }
+    let hits = arr.prefix(p.max_results).map { item -> SearchHit in
+        SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["url"] as? String) ?? "",
+            snippet: (item["description"] as? String) ?? (item["snippet"] as? String) ?? "",
+            published_date: item["date_published"] as? String ?? item["age"] as? String,
+            source_domain: nil,
+            engine: "you"
+        )
+    }
+    return .success(Array(hits))
+}
+
+func mapYouTime(_ tr: String?) -> String? {
+    switch tr?.lowercased() {
+    case "d", "day": return "day"
+    case "w", "week": return "week"
+    case "m", "month": return "month"
+    case "y", "year": return "year"
+    default: return nil
+    }
+}
+
+// --- Free scraping backends ---
+
+private func ddgScrape(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    var url = "https://html.duckduckgo.com/html/?q=\(urlEncode(augmentedQuery(p)))"
+    if let region = p.region { url += "&kl=\(urlEncode(region))" } else { url += "&kl=wt-wt" }
+    if p.vertical == .news { url += "&iar=news" }
+    if let df = mapDDGTime(p.time_range) { url += "&df=\(df)" }
+    let res = httpRequest(url: url)
+    if let err = res.error { return .failure(BackendError("DDG: \(err)")) }
+    guard let data = res.data, let html = String(data: data, encoding: .utf8) else {
+        return .failure(BackendError("DDG: empty response"))
+    }
+    return .success(parseDDGHTML(html, max: p.max_results))
+}
+
+func mapDDGTime(_ tr: String?) -> String? {
+    switch tr?.lowercased() {
+    case "d", "day": return "d"
+    case "w", "week": return "w"
+    case "m", "month": return "m"
+    case "y", "year": return "y"
+    default: return nil
+    }
+}
+
+func parseDDGHTML(_ html: String, max: Int) -> [SearchHit] {
+    var results: [SearchHit] = []
+
+    let resultPattern =
+        "<div\\s+class=\"result[^\"]*\"[\\s\\S]*?<a[^>]*class=\"[^\"]*result__a[^\"]*\"[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)</a>(?:[\\s\\S]*?<a[^>]*class=\"[^\"]*result__snippet[^\"]*\"[^>]*>([\\s\\S]*?)</a>)?"
+    if let regex = try? NSRegularExpression(pattern: resultPattern, options: .caseInsensitive) {
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        for m in matches.prefix(max) {
+            guard let urlR = Range(m.range(at: 1), in: html),
+                let titleR = Range(m.range(at: 2), in: html)
+            else { continue }
+            let url = unwrapDDG(decodeHTMLEntities(String(html[urlR])))
+            let title = stripHTML(String(html[titleR]))
+            var snippet = ""
+            if m.numberOfRanges > 3, let r = Range(m.range(at: 3), in: html) {
+                snippet = stripHTML(String(html[r]))
             }
+            results.append(SearchHit(title: title, url: url, snippet: snippet, engine: "ddg"))
         }
     }
 
-    // If lite pattern didn't work, try regular DDG HTML pattern
+    // Lite fallback
     if results.isEmpty {
-        // Pattern for regular DDG results: <a class="result__a" href="...">title</a>
-        let regularPattern = "<a[^>]*class=\"[^\"]*result__a[^\"]*\"[^>]*href=\"([^\"]+)\"[^>]*>([^<]+)</a>"
-        let regularSnippetPattern = "<a[^>]*class=\"[^\"]*result__snippet[^\"]*\"[^>]*>([^<]+(?:<[^>]+>[^<]*)*)</a>"
-
-        if let linkRegex = try? NSRegularExpression(pattern: regularPattern, options: .caseInsensitive),
-            let snippetRegex = try? NSRegularExpression(pattern: regularSnippetPattern, options: .caseInsensitive)
-        {
-
-            let range = NSRange(html.startIndex..., in: html)
-            let linkMatches = linkRegex.matches(in: html, range: range)
-            let snippetMatches = snippetRegex.matches(in: html, range: range)
-
-            for (i, match) in linkMatches.prefix(maxResults).enumerated() {
-                if let urlRange = Range(match.range(at: 1), in: html),
-                    let titleRange = Range(match.range(at: 2), in: html)
-                {
-                    var url = decodeHTMLEntities(String(html[urlRange]))
-                    let title = stripHTML(String(html[titleRange]))
-
-                    // DDG wraps URLs, extract the actual URL
-                    if url.contains("uddg="), let extracted = extractDDGUrl(url) {
-                        url = extracted
-                    }
-
-                    var snippet = ""
-                    if i < snippetMatches.count {
-                        if let snippetRange = Range(snippetMatches[i].range(at: 1), in: html) {
-                            snippet = stripHTML(String(html[snippetRange]))
-                        }
-                    }
-
-                    results.append(SearchResult(title: title, url: url, snippet: snippet))
-                }
-            }
-        }
-    }
-
-    // Fallback: Generic link extraction with context
-    if results.isEmpty {
-        let genericPattern = "<a[^>]*href=\"(https?://[^\"]+)\"[^>]*>([^<]+)</a>"
-        if let regex = try? NSRegularExpression(pattern: genericPattern, options: .caseInsensitive) {
-            let range = NSRange(html.startIndex..., in: html)
-            let matches = regex.matches(in: html, range: range)
-
-            for match in matches.prefix(maxResults * 2) {  // Get more, filter later
-                if let urlRange = Range(match.range(at: 1), in: html),
-                    let titleRange = Range(match.range(at: 2), in: html)
-                {
-                    var url = String(html[urlRange])
-                    let title = stripHTML(String(html[titleRange]))
-
-                    // Skip DDG internal links
-                    if url.contains("duckduckgo.com") && !url.contains("uddg=") {
-                        continue
-                    }
-
-                    // Extract wrapped URLs
-                    if url.contains("uddg="), let extracted = extractDDGUrl(url) {
-                        url = extracted
-                    }
-
-                    // Skip empty or very short titles
-                    if title.count < 3 { continue }
-
-                    results.append(SearchResult(title: title, url: url, snippet: ""))
-
-                    if results.count >= maxResults { break }
-                }
+        let lite = "<a[^>]*class=\"result-link\"[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)</a>"
+        if let regex = try? NSRegularExpression(pattern: lite, options: .caseInsensitive) {
+            let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+            for m in matches.prefix(max) {
+                guard let urlR = Range(m.range(at: 1), in: html),
+                    let titleR = Range(m.range(at: 2), in: html)
+                else { continue }
+                let url = unwrapDDG(decodeHTMLEntities(String(html[urlR])))
+                results.append(
+                    SearchHit(
+                        title: stripHTML(String(html[titleR])),
+                        url: url,
+                        snippet: "",
+                        engine: "ddg"
+                    ))
             }
         }
     }
@@ -335,783 +612,484 @@ private func parseDDGResults(html: String, maxResults: Int) -> [SearchResult] {
     return results
 }
 
-private func extractDDGUrl(_ wrappedUrl: String) -> String? {
-    // DDG wraps URLs like: //duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com&...
-    if let range = wrappedUrl.range(of: "uddg=") {
-        var encoded = String(wrappedUrl[range.upperBound...])
-        if let ampRange = encoded.range(of: "&") {
-            encoded = String(encoded[..<ampRange.lowerBound])
-        }
-        return encoded.removingPercentEncoding
+private func braveScrape(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    let endpoint =
+        p.vertical == .news
+        ? "https://search.brave.com/news?q=\(urlEncode(augmentedQuery(p)))"
+        : "https://search.brave.com/search?q=\(urlEncode(augmentedQuery(p)))&source=web"
+    let res = httpRequest(url: endpoint)
+    if let err = res.error { return .failure(BackendError("Brave HTML: \(err)")) }
+    guard let data = res.data, let html = String(data: data, encoding: .utf8) else {
+        return .failure(BackendError("Brave HTML: empty response"))
     }
-    return nil
+    return .success(parseBraveHTML(html, max: p.max_results))
 }
 
-// MARK: - Search Provider Protocol
-
-/// Result from a search provider
-private struct SearchProviderResult {
-    let results: [SearchResult]
-    let rateLimited: Bool
-    let error: String?
+func parseBraveHTML(_ html: String, max: Int) -> [SearchHit] {
+    var hits: [SearchHit] = []
+    let pattern =
+        "<div[^>]*class=\"[^\"]*snippet[^\"]*\"[^>]*>[\\s\\S]*?<a[^>]*href=\"([^\"]+)\"[^>]*>[\\s\\S]*?<div[^>]*class=\"[^\"]*title[^\"]*\"[^>]*>([\\s\\S]*?)</div>[\\s\\S]*?<div[^>]*class=\"[^\"]*snippet-description[^\"]*\"[^>]*>([\\s\\S]*?)</div>"
+    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        for m in matches.prefix(max) {
+            guard let urlR = Range(m.range(at: 1), in: html),
+                let titleR = Range(m.range(at: 2), in: html),
+                let snipR = Range(m.range(at: 3), in: html)
+            else { continue }
+            let url = decodeHTMLEntities(String(html[urlR]))
+            guard url.hasPrefix("http") else { continue }
+            hits.append(
+                SearchHit(
+                    title: stripHTML(String(html[titleR])),
+                    url: url,
+                    snippet: stripHTML(String(html[snipR])),
+                    engine: "brave_html"
+                ))
+        }
+    }
+    return hits
 }
 
-/// Protocol for search providers
-private protocol SearchProvider {
-    var name: String { get }
-    func search(query: String, maxResults: Int, region: String?) -> SearchProviderResult
-    func searchNews(query: String, maxResults: Int, timelimit: String?) -> SearchProviderResult
+private func bingScrape(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    let endpoint =
+        p.vertical == .news
+        ? "https://www.bing.com/news/search?q=\(urlEncode(augmentedQuery(p)))&count=\(p.max_results)"
+        : "https://www.bing.com/search?q=\(urlEncode(augmentedQuery(p)))&count=\(p.max_results)"
+    let res = httpRequest(url: endpoint)
+    if let err = res.error { return .failure(BackendError("Bing HTML: \(err)")) }
+    guard let data = res.data, let html = String(data: data, encoding: .utf8) else {
+        return .failure(BackendError("Bing HTML: empty response"))
+    }
+    return .success(parseBingHTML(html, max: p.max_results))
 }
 
-// MARK: - DuckDuckGo Search Provider
-
-private class DDGSearchProvider: SearchProvider {
-    let name = "DuckDuckGo"
-
-    func search(query: String, maxResults: Int, region: String?) -> SearchProviderResult {
-        let regionCode = region ?? "wt-wt"
-        let searchUrl = "https://html.duckduckgo.com/html/?q=\(urlEncode(query))&kl=\(regionCode)"
-
-        let result = performRequestWithRetry(url: searchUrl)
-
-        if result.rateLimited {
-            return SearchProviderResult(results: [], rateLimited: true, error: "Rate limited by DuckDuckGo")
+func parseBingHTML(_ html: String, max: Int) -> [SearchHit] {
+    var hits: [SearchHit] = []
+    let pattern =
+        "<li[^>]*class=\"b_algo\"[^>]*>[\\s\\S]*?<h2>[\\s\\S]*?<a[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)</a>[\\s\\S]*?</h2>(?:[\\s\\S]*?<p[^>]*>([\\s\\S]*?)</p>)?"
+    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        for m in matches.prefix(max) {
+            guard let urlR = Range(m.range(at: 1), in: html),
+                let titleR = Range(m.range(at: 2), in: html)
+            else { continue }
+            var snippet = ""
+            if m.numberOfRanges > 3, let r = Range(m.range(at: 3), in: html) {
+                snippet = stripHTML(String(html[r]))
+            }
+            hits.append(
+                SearchHit(
+                    title: stripHTML(String(html[titleR])),
+                    url: decodeHTMLEntities(String(html[urlR])),
+                    snippet: snippet,
+                    engine: "bing_html"
+                ))
         }
-
-        if let error = result.error {
-            return SearchProviderResult(results: [], rateLimited: false, error: error)
-        }
-
-        guard let responseData = result.data,
-            let html = String(data: responseData, encoding: .utf8)
-        else {
-            return SearchProviderResult(results: [], rateLimited: false, error: "Failed to get search results")
-        }
-
-        let results = parseDDGResults(html: html, maxResults: maxResults)
-        return SearchProviderResult(results: results, rateLimited: false, error: nil)
     }
-
-    func searchNews(query: String, maxResults: Int, timelimit: String?) -> SearchProviderResult {
-        var searchUrl = "https://html.duckduckgo.com/html/?q=\(urlEncode(query))&iar=news"
-        if let timelimit = timelimit {
-            searchUrl += "&df=\(timelimit)"
-        }
-
-        let result = performRequestWithRetry(url: searchUrl)
-
-        if result.rateLimited {
-            return SearchProviderResult(results: [], rateLimited: true, error: "Rate limited by DuckDuckGo")
-        }
-
-        if let error = result.error {
-            return SearchProviderResult(results: [], rateLimited: false, error: error)
-        }
-
-        guard let responseData = result.data,
-            let html = String(data: responseData, encoding: .utf8)
-        else {
-            return SearchProviderResult(results: [], rateLimited: false, error: "Failed to get news results")
-        }
-
-        let results = parseDDGResults(html: html, maxResults: maxResults)
-        return SearchProviderResult(results: results, rateLimited: false, error: nil)
-    }
+    return hits
 }
 
-// MARK: - Brave Search Provider
+// MARK: - Image search (DDG only for free; APIs as fallback)
 
-private class BraveSearchProvider: SearchProvider {
-    let name = "Brave"
-
-    func search(query: String, maxResults: Int, region: String?) -> SearchProviderResult {
-        let searchUrl = "https://search.brave.com/search?q=\(urlEncode(query))&source=web"
-
-        let result = performRequestWithRetry(url: searchUrl)
-
-        if result.rateLimited {
-            return SearchProviderResult(results: [], rateLimited: true, error: "Rate limited by Brave Search")
-        }
-
-        if let error = result.error {
-            return SearchProviderResult(results: [], rateLimited: false, error: error)
-        }
-
-        guard let responseData = result.data,
-            let html = String(data: responseData, encoding: .utf8)
-        else {
-            return SearchProviderResult(results: [], rateLimited: false, error: "Failed to get search results")
-        }
-
-        let results = parseBraveResults(html: html, maxResults: maxResults)
-        return SearchProviderResult(results: results, rateLimited: false, error: nil)
+private func runImageSearch(_ params: SearchParams) -> Result<[ImageHit], BackendError> {
+    // Free DDG image search via VQD token
+    let q = urlEncode(params.query)
+    let bootstrap = httpRequest(url: "https://duckduckgo.com/?q=\(q)&iax=images&ia=images")
+    guard let bootData = bootstrap.data, let bootHtml = String(data: bootData, encoding: .utf8) else {
+        return .failure(BackendError("DDG image bootstrap failed"))
     }
-
-    func searchNews(query: String, maxResults: Int, timelimit: String?) -> SearchProviderResult {
-        var searchUrl = "https://search.brave.com/news?q=\(urlEncode(query))"
-        if let timelimit = timelimit {
-            // Brave uses freshness parameter: pd (past day), pw (past week), pm (past month)
-            let freshnessMap = ["d": "pd", "w": "pw", "m": "pm"]
-            if let freshness = freshnessMap[timelimit] {
-                searchUrl += "&tf=\(freshness)"
-            }
-        }
-
-        let result = performRequestWithRetry(url: searchUrl)
-
-        if result.rateLimited {
-            return SearchProviderResult(results: [], rateLimited: true, error: "Rate limited by Brave Search")
-        }
-
-        if let error = result.error {
-            return SearchProviderResult(results: [], rateLimited: false, error: error)
-        }
-
-        guard let responseData = result.data,
-            let html = String(data: responseData, encoding: .utf8)
-        else {
-            return SearchProviderResult(results: [], rateLimited: false, error: "Failed to get news results")
-        }
-
-        let results = parseBraveResults(html: html, maxResults: maxResults)
-        return SearchProviderResult(results: results, rateLimited: false, error: nil)
+    let vqdRegex = try? NSRegularExpression(pattern: "vqd=([\"'])([^\"']+)\\1", options: [])
+    var vqd: String?
+    if let regex = vqdRegex,
+        let m = regex.firstMatch(in: bootHtml, range: NSRange(bootHtml.startIndex..., in: bootHtml)),
+        let r = Range(m.range(at: 2), in: bootHtml)
+    {
+        vqd = String(bootHtml[r])
     }
+    guard let vqd = vqd else { return .failure(BackendError("Could not obtain DDG VQD token")) }
 
-    private func parseBraveResults(html: String, maxResults: Int) -> [SearchResult] {
-        var results: [SearchResult] = []
+    let url = "https://duckduckgo.com/i.js?l=wt-wt&o=json&q=\(q)&vqd=\(vqd)&p=1"
+    let res = httpRequest(url: url, headers: ["Referer": "https://duckduckgo.com/"])
+    guard let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let arr = json["results"] as? [[String: Any]]
+    else { return .failure(BackendError("DDG image API failed (status \(res.status))")) }
 
-        // Brave search results are in <div class="snippet" data-type="web">
-        // with <a class="result-header"> containing the URL and title
-        // and <p class="snippet-description"> containing the snippet
-
-        // Pattern 1: Look for result items with data-type="web"
-        let snippetPattern =
-            "<div[^>]*class=\"[^\"]*snippet[^\"]*\"[^>]*data-type=\"web\"[^>]*>([\\s\\S]*?)</div>\\s*</div>"
-
-        if let snippetRegex = try? NSRegularExpression(pattern: snippetPattern, options: .caseInsensitive) {
-            let range = NSRange(html.startIndex..., in: html)
-            let matches = snippetRegex.matches(in: html, range: range)
-
-            for match in matches.prefix(maxResults) {
-                if let contentRange = Range(match.range(at: 1), in: html) {
-                    let content = String(html[contentRange])
-
-                    // Extract URL and title from result-header link
-                    let headerPattern =
-                        "<a[^>]*class=\"[^\"]*result-header[^\"]*\"[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)</a>"
-                    if let headerRegex = try? NSRegularExpression(pattern: headerPattern, options: .caseInsensitive) {
-                        let contentRange = NSRange(content.startIndex..., in: content)
-                        if let headerMatch = headerRegex.firstMatch(in: content, range: contentRange) {
-                            if let urlRange = Range(headerMatch.range(at: 1), in: content),
-                                let titleRange = Range(headerMatch.range(at: 2), in: content)
-                            {
-                                let url = decodeHTMLEntities(String(content[urlRange]))
-                                let title = stripHTML(String(content[titleRange]))
-
-                                // Extract snippet
-                                var snippet = ""
-                                let snippetDescPattern =
-                                    "<p[^>]*class=\"[^\"]*snippet-description[^\"]*\"[^>]*>([\\s\\S]*?)</p>"
-                                if let descRegex = try? NSRegularExpression(
-                                    pattern: snippetDescPattern, options: .caseInsensitive)
-                                {
-                                    if let descMatch = descRegex.firstMatch(in: content, range: contentRange) {
-                                        if let descRange = Range(descMatch.range(at: 1), in: content) {
-                                            snippet = stripHTML(String(content[descRange]))
-                                        }
-                                    }
-                                }
-
-                                if !url.isEmpty && !title.isEmpty {
-                                    results.append(SearchResult(title: title, url: url, snippet: snippet))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback: simpler pattern for Brave results
-        if results.isEmpty {
-            // Try to find links with titles in search results
-            let simplePattern = "<a[^>]*href=\"(https?://[^\"]+)\"[^>]*>\\s*<span[^>]*>([^<]+)</span>"
-            if let regex = try? NSRegularExpression(pattern: simplePattern, options: .caseInsensitive) {
-                let range = NSRange(html.startIndex..., in: html)
-                let matches = regex.matches(in: html, range: range)
-
-                for match in matches.prefix(maxResults * 2) {
-                    if let urlRange = Range(match.range(at: 1), in: html),
-                        let titleRange = Range(match.range(at: 2), in: html)
-                    {
-                        let url = String(html[urlRange])
-                        let title = stripHTML(String(html[titleRange]))
-
-                        // Skip Brave internal links
-                        if url.contains("brave.com") && !url.contains("search.brave.com/search") {
-                            continue
-                        }
-
-                        if title.count >= 3 && !url.isEmpty {
-                            results.append(SearchResult(title: title, url: url, snippet: ""))
-                            if results.count >= maxResults { break }
-                        }
-                    }
-                }
-            }
-        }
-
-        return results
+    let hits = arr.prefix(params.max_results).map { item -> ImageHit in
+        ImageHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["url"] as? String) ?? "",
+            image_url: (item["image"] as? String) ?? "",
+            thumbnail_url: item["thumbnail"] as? String,
+            width: item["width"] as? Int,
+            height: item["height"] as? Int,
+            source_domain: item["source"] as? String,
+            engine: "ddg"
+        )
     }
+    return .success(Array(hits))
 }
 
-// MARK: - Bing Search Provider
+// MARK: - Cascade + dedupe
 
-private class BingSearchProvider: SearchProvider {
-    let name = "Bing"
+private func runWebOrNews(_ params: SearchParams) -> [String: Any] {
+    let order = providerCascade(secrets: params.secrets, requested: params.provider, vertical: params.vertical)
+    var attempts: [[String: Any]] = []
+    var hits: [SearchHit] = []
+    var usedProvider: String?
 
-    func search(query: String, maxResults: Int, region: String?) -> SearchProviderResult {
-        let searchUrl = "https://www.bing.com/search?q=\(urlEncode(query))&count=\(maxResults)"
-
-        let result = performRequestWithRetry(url: searchUrl)
-
-        if result.rateLimited {
-            return SearchProviderResult(results: [], rateLimited: true, error: "Rate limited by Bing")
-        }
-
-        if let error = result.error {
-            return SearchProviderResult(results: [], rateLimited: false, error: error)
-        }
-
-        guard let responseData = result.data,
-            let html = String(data: responseData, encoding: .utf8)
-        else {
-            return SearchProviderResult(results: [], rateLimited: false, error: "Failed to get search results")
-        }
-
-        let results = parseBingResults(html: html, maxResults: maxResults)
-        return SearchProviderResult(results: results, rateLimited: false, error: nil)
-    }
-
-    func searchNews(query: String, maxResults: Int, timelimit: String?) -> SearchProviderResult {
-        var searchUrl = "https://www.bing.com/news/search?q=\(urlEncode(query))"
-        if let timelimit = timelimit {
-            // Bing uses qft parameter for time filter
-            let timeMap = ["d": "interval%3d%227%22", "w": "interval%3d%228%22", "m": "interval%3d%229%22"]
-            if let interval = timeMap[timelimit] {
-                searchUrl += "&qft=\(interval)"
+    for provider in order {
+        let result = runBackend(provider, params: params)
+        switch result {
+        case .success(let h):
+            attempts.append(["provider": provider, "ok": true, "count": h.count])
+            if !h.isEmpty {
+                hits = h
+                usedProvider = provider
+                break  // breaks out of switch only
             }
+        case .failure(let err):
+            attempts.append(["provider": provider, "ok": false, "error": err.message])
         }
-
-        let result = performRequestWithRetry(url: searchUrl)
-
-        if result.rateLimited {
-            return SearchProviderResult(results: [], rateLimited: true, error: "Rate limited by Bing")
-        }
-
-        if let error = result.error {
-            return SearchProviderResult(results: [], rateLimited: false, error: error)
-        }
-
-        guard let responseData = result.data,
-            let html = String(data: responseData, encoding: .utf8)
-        else {
-            return SearchProviderResult(results: [], rateLimited: false, error: "Failed to get news results")
-        }
-
-        let results = parseBingNewsResults(html: html, maxResults: maxResults)
-        return SearchProviderResult(results: results, rateLimited: false, error: nil)
+        if !hits.isEmpty { break }
     }
 
-    private func parseBingResults(html: String, maxResults: Int) -> [SearchResult] {
-        var results: [SearchResult] = []
-
-        // Bing results are typically in <li class="b_algo"> elements
-        // with <h2><a href="...">title</a></h2> and <p class="b_lineclamp...">snippet</p>
-
-        // Pattern for Bing organic results
-        let algoPattern = "<li[^>]*class=\"b_algo\"[^>]*>([\\s\\S]*?)</li>"
-
-        if let algoRegex = try? NSRegularExpression(pattern: algoPattern, options: .caseInsensitive) {
-            let range = NSRange(html.startIndex..., in: html)
-            let matches = algoRegex.matches(in: html, range: range)
-
-            for match in matches.prefix(maxResults) {
-                if let contentRange = Range(match.range(at: 1), in: html) {
-                    let content = String(html[contentRange])
-
-                    // Extract URL and title from h2 > a
-                    let linkPattern = "<h2[^>]*>\\s*<a[^>]*href=\"([^\"]+)\"[^>]*>([\\s\\S]*?)</a>"
-                    if let linkRegex = try? NSRegularExpression(pattern: linkPattern, options: .caseInsensitive) {
-                        let contentRange = NSRange(content.startIndex..., in: content)
-                        if let linkMatch = linkRegex.firstMatch(in: content, range: contentRange) {
-                            if let urlRange = Range(linkMatch.range(at: 1), in: content),
-                                let titleRange = Range(linkMatch.range(at: 2), in: content)
-                            {
-                                let url = decodeHTMLEntities(String(content[urlRange]))
-                                let title = stripHTML(String(content[titleRange]))
-
-                                // Skip Bing internal URLs
-                                if url.contains("bing.com") || url.contains("microsoft.com/bing") {
-                                    continue
-                                }
-
-                                // Extract snippet
-                                var snippet = ""
-                                let snippetPattern = "<p[^>]*class=\"[^\"]*b_lineclamp[^\"]*\"[^>]*>([\\s\\S]*?)</p>"
-                                if let snippetRegex = try? NSRegularExpression(
-                                    pattern: snippetPattern, options: .caseInsensitive)
-                                {
-                                    if let snippetMatch = snippetRegex.firstMatch(in: content, range: contentRange) {
-                                        if let snippetRange = Range(snippetMatch.range(at: 1), in: content) {
-                                            snippet = stripHTML(String(content[snippetRange]))
-                                        }
-                                    }
-                                }
-
-                                // Alternative snippet pattern
-                                if snippet.isEmpty {
-                                    let altSnippetPattern =
-                                        "<div[^>]*class=\"[^\"]*b_caption[^\"]*\"[^>]*>([\\s\\S]*?)</div>"
-                                    if let altRegex = try? NSRegularExpression(
-                                        pattern: altSnippetPattern, options: .caseInsensitive)
-                                    {
-                                        if let altMatch = altRegex.firstMatch(in: content, range: contentRange) {
-                                            if let altRange = Range(altMatch.range(at: 1), in: content) {
-                                                snippet = stripHTML(String(content[altRange]))
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if !url.isEmpty && !title.isEmpty {
-                                    results.append(SearchResult(title: title, url: url, snippet: snippet))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback: simpler link extraction
-        if results.isEmpty {
-            let simplePattern = "<a[^>]*href=\"(https?://[^\"]+)\"[^>]*h=\"[^\"]*\"[^>]*>([^<]+)</a>"
-            if let regex = try? NSRegularExpression(pattern: simplePattern, options: .caseInsensitive) {
-                let range = NSRange(html.startIndex..., in: html)
-                let matches = regex.matches(in: html, range: range)
-
-                for match in matches.prefix(maxResults * 2) {
-                    if let urlRange = Range(match.range(at: 1), in: html),
-                        let titleRange = Range(match.range(at: 2), in: html)
-                    {
-                        let url = String(html[urlRange])
-                        let title = stripHTML(String(html[titleRange]))
-
-                        // Skip Bing/Microsoft internal links
-                        if url.contains("bing.com") || url.contains("microsoft.com") {
-                            continue
-                        }
-
-                        if title.count >= 3 {
-                            results.append(SearchResult(title: title, url: url, snippet: ""))
-                            if results.count >= maxResults { break }
-                        }
-                    }
-                }
-            }
-        }
-
-        return results
+    var seen = Set<String>()
+    var deduped: [SearchHit] = []
+    for h in hits {
+        let key = h.url.lowercased()
+        if key.isEmpty || seen.contains(key) { continue }
+        seen.insert(key)
+        deduped.append(h)
     }
 
-    private func parseBingNewsResults(html: String, maxResults: Int) -> [SearchResult] {
-        var results: [SearchResult] = []
-
-        // Bing news results are in <div class="news-card"> or similar
-        let newsPattern = "<a[^>]*class=\"[^\"]*title[^\"]*\"[^>]*href=\"([^\"]+)\"[^>]*>([^<]+)</a>"
-
-        if let regex = try? NSRegularExpression(pattern: newsPattern, options: .caseInsensitive) {
-            let range = NSRange(html.startIndex..., in: html)
-            let matches = regex.matches(in: html, range: range)
-
-            for match in matches.prefix(maxResults) {
-                if let urlRange = Range(match.range(at: 1), in: html),
-                    let titleRange = Range(match.range(at: 2), in: html)
-                {
-                    let url = decodeHTMLEntities(String(html[urlRange]))
-                    let title = stripHTML(String(html[titleRange]))
-
-                    if !url.contains("bing.com") && !title.isEmpty {
-                        results.append(SearchResult(title: title, url: url, snippet: ""))
-                    }
-                }
-            }
-        }
-
-        // Fallback to regular results parser
-        if results.isEmpty {
-            results = parseBingResults(html: html, maxResults: maxResults)
-        }
-
-        return results
-    }
-}
-
-// MARK: - DuckDuckGo VQD Token Helper
-
-/// Get VQD token required for DuckDuckGo image search API
-private func getVQDToken(query: String) -> String? {
-    let searchUrl = "https://duckduckgo.com/?q=\(urlEncode(query))"
-    let result = performRequest(url: searchUrl)
-
-    guard let data = result.data,
-        let html = String(data: data, encoding: .utf8)
-    else {
-        return nil
-    }
-
-    // Look for vqd token in various patterns DDG uses
-    let patterns = [
-        "vqd=['\"]([^'\"]+)['\"]",
-        "vqd=([\\d-]+)",
-        "vqd%3D([^&\"']+)",
+    var out: [String: Any] = [
+        "query": params.query,
+        "provider": usedProvider ?? "",
+        "results": deduped.enumerated().map { $0.element.toDict(rank: $0.offset + 1) },
+        "count": deduped.count,
+        "attempts": attempts,
     ]
-
-    for pattern in patterns {
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
-            let range = NSRange(html.startIndex..., in: html)
-            if let match = regex.firstMatch(in: html, range: range),
-                let tokenRange = Range(match.range(at: 1), in: html)
-            {
-                let token = String(html[tokenRange])
-                if !token.isEmpty {
-                    return token
-                }
-            }
-        }
+    if deduped.count == params.max_results {
+        out["next_offset"] = params.offset + params.max_results
     }
-
-    return nil
+    return out
 }
 
-// MARK: - Provider Cascade Helper
+// MARK: - Args & secrets
 
-/// Result of a cascaded search across multiple providers
-private struct CascadeResult {
-    let results: [SearchResult]
-    let successfulProvider: String?
-    let warning: String?
-    let allFailed: Bool
+struct SecretsBlock: Decodable { let _secrets: [String: String]? }
+
+func extractSecrets(_ raw: String) -> [String: String] {
+    if let data = raw.data(using: .utf8),
+        let block = try? JSONDecoder().decode(SecretsBlock.self, from: data),
+        let s = block._secrets
+    {
+        return s
+    }
+    return [:]
 }
 
-/// Get ordered list of search providers
-private func getSearchProviders() -> [SearchProvider] {
-    return [
-        DDGSearchProvider(),
-        BraveSearchProvider(),
-        BingSearchProvider(),
-    ]
+struct WebArgs: Decodable {
+    let query: String
+    let max_results: Int?
+    let offset: Int?
+    let site: String?
+    let filetype: String?
+    let time_range: String?
+    let region: String?
+    let provider: String?
 }
 
-/// Cascade through providers for web search until one succeeds
-private func cascadeSearch(query: String, maxResults: Int, region: String?) -> CascadeResult {
-    let providers = getSearchProviders()
-    var collectedResults: [SearchResult] = []
-    var failedProviders: [String] = []
-    var successfulProvider: String?
-
-    for provider in providers {
-        let result = provider.search(query: query, maxResults: maxResults, region: region)
-
-        if result.rateLimited {
-            failedProviders.append(provider.name)
-            continue
-        }
-
-        if result.error != nil && result.results.isEmpty {
-            failedProviders.append(provider.name)
-            continue
-        }
-
-        if !result.results.isEmpty {
-            collectedResults = result.results
-            successfulProvider = provider.name
-            break
-        }
-    }
-
-    // Determine warning message
-    var warning: String?
-    if !failedProviders.isEmpty && successfulProvider != nil {
-        warning =
-            "Some search providers were unavailable (\(failedProviders.joined(separator: ", "))). Results may be limited."
-    } else if successfulProvider == nil && !failedProviders.isEmpty {
-        warning = "All search providers are currently unavailable. Please try again later."
-    }
-
-    return CascadeResult(
-        results: collectedResults,
-        successfulProvider: successfulProvider,
-        warning: warning,
-        allFailed: successfulProvider == nil && !failedProviders.isEmpty
-    )
+struct ImageArgs: Decodable {
+    let query: String
+    let max_results: Int?
 }
 
-/// Cascade through providers for news search until one succeeds
-private func cascadeNewsSearch(query: String, maxResults: Int, timelimit: String?) -> CascadeResult {
-    let providers = getSearchProviders()
-    var collectedResults: [SearchResult] = []
-    var failedProviders: [String] = []
-    var successfulProvider: String?
-
-    for provider in providers {
-        let result = provider.searchNews(query: query, maxResults: maxResults, timelimit: timelimit)
-
-        if result.rateLimited {
-            failedProviders.append(provider.name)
-            continue
-        }
-
-        if result.error != nil && result.results.isEmpty {
-            failedProviders.append(provider.name)
-            continue
-        }
-
-        if !result.results.isEmpty {
-            collectedResults = result.results
-            successfulProvider = provider.name
-            break
-        }
-    }
-
-    // Determine warning message
-    var warning: String?
-    if !failedProviders.isEmpty && successfulProvider != nil {
-        warning =
-            "Some search providers were unavailable (\(failedProviders.joined(separator: ", "))). Results may be limited."
-    } else if successfulProvider == nil && !failedProviders.isEmpty {
-        warning = "All search providers are currently unavailable. Please try again later."
-    }
-
-    return CascadeResult(
-        results: collectedResults,
-        successfulProvider: successfulProvider,
-        warning: warning,
-        allFailed: successfulProvider == nil && !failedProviders.isEmpty
-    )
-}
-
-// MARK: - Tool Implementations
+// MARK: - Tools
 
 private struct SearchTool {
-    let name = "search"
+    static let name = "search"
 
-    func run(args: String) -> String {
-        struct Args: Decodable {
-            let query: String
-            let max_results: Int?
-            let region: String?
+    func run(args: String) throws -> [String: Any] {
+        let parsed: WebArgs = try decodeArgs(args)
+        guard !parsed.query.isEmpty else {
+            throw ToolError(code: "INVALID_ARGS", message: "Required: 'query' (string).")
         }
-
-        guard let data = args.data(using: .utf8),
-            let input = try? JSONDecoder().decode(Args.self, from: data)
-        else {
-            return "{\"error\": \"Invalid arguments. Required: query\"}"
-        }
-
-        let maxResults = input.max_results ?? 10
-        let region = input.region
-
-        // Use provider cascade for resilience
-        let cascadeResult = cascadeSearch(query: input.query, maxResults: maxResults, region: region)
-
-        // Build response JSON
-        let resultsJSON = cascadeResult.results.map { r in
-            "{\"title\": \"\(escapeJSON(r.title))\", \"url\": \"\(escapeJSON(r.url))\", \"snippet\": \"\(escapeJSON(r.snippet))\"}"
-        }.joined(separator: ",")
-
-        var response =
-            "{\"results\": [\(resultsJSON)], \"query\": \"\(escapeJSON(input.query))\", \"count\": \(cascadeResult.results.count)"
-
-        // Add provider info
-        if let provider = cascadeResult.successfulProvider {
-            response += ", \"provider\": \"\(escapeJSON(provider))\""
-        }
-
-        // Add warning if any providers failed
-        if let warning = cascadeResult.warning {
-            response += ", \"warning\": \"\(escapeJSON(warning))\""
-        }
-
-        // Add message for empty results
-        if cascadeResult.results.isEmpty {
-            if cascadeResult.allFailed {
-                response +=
-                    ", \"message\": \"All search providers are currently rate limited. Please try again later.\""
-            } else {
-                response += ", \"message\": \"No results found\""
-            }
-        }
-
-        response += "}"
-        return response
+        let params = SearchParams(
+            query: parsed.query,
+            max_results: max(1, min(parsed.max_results ?? 10, 50)),
+            offset: max(0, parsed.offset ?? 0),
+            site: parsed.site,
+            filetype: parsed.filetype,
+            time_range: parsed.time_range,
+            region: parsed.region,
+            provider: parsed.provider,
+            secrets: extractSecrets(args),
+            vertical: .web
+        )
+        return runWebOrNews(params)
     }
 }
 
 private struct SearchNewsTool {
-    let name = "search_news"
+    static let name = "search_news"
 
-    func run(args: String) -> String {
-        struct Args: Decodable {
-            let query: String
-            let max_results: Int?
-            let timelimit: String?
+    func run(args: String) throws -> [String: Any] {
+        let parsed: WebArgs = try decodeArgs(args)
+        guard !parsed.query.isEmpty else {
+            throw ToolError(code: "INVALID_ARGS", message: "Required: 'query' (string).")
         }
-
-        guard let data = args.data(using: .utf8),
-            let input = try? JSONDecoder().decode(Args.self, from: data)
-        else {
-            return "{\"error\": \"Invalid arguments. Required: query\"}"
-        }
-
-        let maxResults = input.max_results ?? 10
-
-        // Use provider cascade for resilience
-        let cascadeResult = cascadeNewsSearch(query: input.query, maxResults: maxResults, timelimit: input.timelimit)
-
-        // Build response JSON
-        let resultsJSON = cascadeResult.results.map { r in
-            "{\"title\": \"\(escapeJSON(r.title))\", \"url\": \"\(escapeJSON(r.url))\", \"snippet\": \"\(escapeJSON(r.snippet))\"}"
-        }.joined(separator: ",")
-
-        var response =
-            "{\"results\": [\(resultsJSON)], \"query\": \"\(escapeJSON(input.query))\", \"type\": \"news\", \"count\": \(cascadeResult.results.count)"
-
-        // Add provider info
-        if let provider = cascadeResult.successfulProvider {
-            response += ", \"provider\": \"\(escapeJSON(provider))\""
-        }
-
-        // Add warning if any providers failed
-        if let warning = cascadeResult.warning {
-            response += ", \"warning\": \"\(escapeJSON(warning))\""
-        }
-
-        // Add message for empty results
-        if cascadeResult.results.isEmpty {
-            if cascadeResult.allFailed {
-                response +=
-                    ", \"message\": \"All search providers are currently rate limited. Please try again later.\""
-            } else {
-                response += ", \"message\": \"No results found\""
-            }
-        }
-
-        response += "}"
-        return response
+        let params = SearchParams(
+            query: parsed.query,
+            max_results: max(1, min(parsed.max_results ?? 10, 50)),
+            offset: max(0, parsed.offset ?? 0),
+            site: parsed.site,
+            filetype: parsed.filetype,
+            time_range: parsed.time_range ?? "w",
+            region: parsed.region,
+            provider: parsed.provider,
+            secrets: extractSecrets(args),
+            vertical: .news
+        )
+        return runWebOrNews(params)
     }
 }
 
 private struct SearchImagesTool {
-    let name = "search_images"
+    static let name = "search_images"
 
-    func run(args: String) -> String {
+    func run(args: String) throws -> [String: Any] {
+        let parsed: ImageArgs = try decodeArgs(args)
+        guard !parsed.query.isEmpty else {
+            throw ToolError(code: "INVALID_ARGS", message: "Required: 'query' (string).")
+        }
+        let params = SearchParams(
+            query: parsed.query,
+            max_results: max(1, min(parsed.max_results ?? 20, 100)),
+            offset: 0,
+            site: nil, filetype: nil, time_range: nil, region: nil, provider: nil,
+            secrets: extractSecrets(args),
+            vertical: .web
+        )
+        switch runImageSearch(params) {
+        case .success(let imgs):
+            return [
+                "query": parsed.query,
+                "provider": "ddg",
+                "results": imgs.enumerated().map { $0.element.toDict(rank: $0.offset + 1) },
+                "count": imgs.count,
+            ]
+        case .failure(let err):
+            throw ToolError(
+                code: "PROVIDER_UNAVAILABLE",
+                message: err.message,
+                hint: "DDG image search is brittle; try again or use a different query."
+            )
+        }
+    }
+}
+
+private struct SearchAndExtractTool {
+    static let name = "search_and_extract"
+
+    func run(args: String) throws -> [String: Any] {
         struct Args: Decodable {
             let query: String
             let max_results: Int?
-            let size: String?
-            let type: String?
+            let extract_count: Int?
+            let provider: String?
+            let time_range: String?
+            let site: String?
+            let filetype: String?
+            let timeout: Double?
+        }
+        let parsed: Args = try decodeArgs(args)
+        guard !parsed.query.isEmpty else {
+            throw ToolError(code: "INVALID_ARGS", message: "Required: 'query' (string).")
+        }
+        let maxResults = max(1, min(parsed.max_results ?? 5, 20))
+        let extractCount = max(1, min(parsed.extract_count ?? 3, maxResults))
+
+        let webParams = SearchParams(
+            query: parsed.query,
+            max_results: maxResults,
+            offset: 0,
+            site: parsed.site,
+            filetype: parsed.filetype,
+            time_range: parsed.time_range,
+            region: nil,
+            provider: parsed.provider,
+            secrets: extractSecrets(args),
+            vertical: .web
+        )
+        let webOut = runWebOrNews(webParams)
+        guard let results = webOut["results"] as? [[String: Any]] else {
+            return webOut
         }
 
-        guard let data = args.data(using: .utf8),
-            let input = try? JSONDecoder().decode(Args.self, from: data)
-        else {
-            return "{\"error\": \"Invalid arguments. Required: query\"}"
-        }
-
-        let maxResults = input.max_results ?? 10
-
-        // Step 1: Get VQD token required for image search API
-        guard let vqd = getVQDToken(query: input.query) else {
-            return "{\"error\": \"Failed to get search token from DuckDuckGo\"}"
-        }
-
-        // Step 2: Build the images API URL
-        var apiUrl = "https://duckduckgo.com/i.js?l=wt-wt&o=json&q=\(urlEncode(input.query))&vqd=\(vqd)&p=1"
-
-        // Add size filter
-        if let size = input.size {
-            let sizeMap = ["small": "Small", "medium": "Medium", "large": "Large", "wallpaper": "Wallpaper"]
-            if let mapped = sizeMap[size.lowercased()] {
-                apiUrl += "&iaf=size:\(mapped)"
+        var enriched: [[String: Any]] = []
+        let timeout = parsed.timeout ?? 25
+        for (i, hit) in results.enumerated() {
+            var entry = hit
+            if i < extractCount, let url = hit["url"] as? String {
+                if let extracted = extractReadability(url: url, timeout: timeout) {
+                    entry["title"] = extracted["title"] ?? entry["title"] ?? NSNull()
+                    entry["markdown"] = extracted["markdown"] ?? ""
+                    entry["word_count"] = extracted["word_count"] ?? 0
+                    entry["byline"] = extracted["byline"] ?? NSNull()
+                    entry["lang"] = extracted["lang"] ?? NSNull()
+                    entry["extracted"] = true
+                } else {
+                    entry["extracted"] = false
+                }
+            } else {
+                entry["extracted"] = false
             }
+            enriched.append(entry)
         }
 
-        // Add type filter
-        if let type = input.type {
-            let typeMap = ["photo": "photo", "clipart": "clipart", "gif": "gif", "transparent": "transparent"]
-            if let mapped = typeMap[type.lowercased()] {
-                apiUrl += "&iaf=type:\(mapped)"
-            }
-        }
-
-        // Step 3: Request the images API
-        let result = performRequest(url: apiUrl)
-
-        if let error = result.error {
-            return "{\"error\": \"\(escapeJSON(error))\"}"
-        }
-
-        guard let responseData = result.data else {
-            return "{\"error\": \"Failed to get image results\"}"
-        }
-
-        // Step 4: Parse JSON response
-        struct ImageAPIResult: Decodable {
-            let image: String?
-            let thumbnail: String?
-            let title: String?
-            let url: String?
-            let width: Int?
-            let height: Int?
-        }
-
-        struct ImageAPIResponse: Decodable {
-            let results: [ImageAPIResult]?
-        }
-
-        guard let apiResponse = try? JSONDecoder().decode(ImageAPIResponse.self, from: responseData),
-            let results = apiResponse.results, !results.isEmpty
-        else {
-            return "{\"results\": [], \"query\": \"\(escapeJSON(input.query))\", \"type\": \"images\", \"count\": 0}"
-        }
-
-        // Step 5: Format the results
-        let limitedResults = Array(results.prefix(maxResults))
-        let imagesJSON = limitedResults.compactMap { img -> String? in
-            guard let imageUrl = img.image else { return nil }
-            let title = img.title ?? ""
-            let sourceUrl = img.url ?? ""
-            let thumbnailUrl = img.thumbnail ?? imageUrl
-            let width = img.width ?? 0
-            let height = img.height ?? 0
-
-            return
-                "{\"title\": \"\(escapeJSON(title))\", \"image_url\": \"\(escapeJSON(imageUrl))\", \"thumbnail_url\": \"\(escapeJSON(thumbnailUrl))\", \"source_url\": \"\(escapeJSON(sourceUrl))\", \"width\": \(width), \"height\": \(height)}"
-        }.joined(separator: ",")
-
-        return
-            "{\"results\": [\(imagesJSON)], \"query\": \"\(escapeJSON(input.query))\", \"type\": \"images\", \"count\": \(limitedResults.count)}"
+        var out = webOut
+        out["results"] = enriched
+        return out
     }
+}
+
+// Lightweight Readability extraction used only by search_and_extract.
+private func extractReadability(url: String, timeout: TimeInterval) -> [String: Any]? {
+    let res = httpRequest(
+        url: url,
+        headers: [
+            "Accept": "text/html,application/xhtml+xml"
+        ],
+        timeout: timeout
+    )
+    guard let data = res.data, let html = String(data: data, encoding: .utf8) else {
+        return nil
+    }
+
+    let title = firstGroup(in: html, pattern: "<title[^>]*>([\\s\\S]*?)</title>")
+        .map { decodeHTMLEntities($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+    let byline =
+        metaContent(in: html, name: "author")
+        ?? metaContent(in: html, property: "article:author")
+    let lang = firstGroup(in: html, pattern: "<html[^>]*\\blang=[\"']([^\"']+)[\"']")
+
+    var content = stripBlocks(
+        html,
+        tags: [
+            "script", "style", "noscript", "template", "svg", "iframe", "header", "footer", "nav", "aside", "form",
+            "button",
+        ])
+    if let main = pickMainContainer(content) { content = main }
+    let markdown = htmlToMarkdown(content)
+    let wordCount = markdown.split(whereSeparator: { $0.isWhitespace }).count
+
+    var d: [String: Any] = ["markdown": markdown, "word_count": wordCount]
+    if let t = title { d["title"] = t }
+    if let b = byline { d["byline"] = b }
+    if let l = lang { d["lang"] = l }
+    return d
+}
+
+func firstGroup(in s: String, pattern: String) -> String? {
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+        let match = regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
+        let range = Range(match.range(at: 1), in: s)
+    else { return nil }
+    return String(s[range])
+}
+
+func metaContent(in s: String, name: String? = nil, property: String? = nil) -> String? {
+    if let name = name {
+        let pattern = "<meta[^>]*\\bname=[\"']\(name)[\"'][^>]*\\bcontent=[\"']([^\"']*)[\"']"
+        if let v = firstGroup(in: s, pattern: pattern) { return decodeHTMLEntities(v) }
+    }
+    if let property = property {
+        let pattern = "<meta[^>]*\\bproperty=[\"']\(property)[\"'][^>]*\\bcontent=[\"']([^\"']*)[\"']"
+        if let v = firstGroup(in: s, pattern: pattern) { return decodeHTMLEntities(v) }
+    }
+    return nil
+}
+
+func stripBlocks(_ html: String, tags: [String]) -> String {
+    var out = html
+    for tag in tags {
+        if let regex = try? NSRegularExpression(
+            pattern: "<\(tag)\\b[^>]*>[\\s\\S]*?</\(tag)>",
+            options: .caseInsensitive
+        ) {
+            out = regex.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out), withTemplate: " ")
+        }
+    }
+    return out
+}
+
+func pickMainContainer(_ html: String) -> String? {
+    for tag in ["article", "main"] {
+        if let body = firstGroup(in: html, pattern: "<\(tag)\\b[^>]*>([\\s\\S]*?)</\(tag)>"), !body.isEmpty {
+            return body
+        }
+    }
+    return firstGroup(in: html, pattern: "<body[^>]*>([\\s\\S]*?)</body>")
+}
+
+func htmlToMarkdown(_ html: String) -> String {
+    var s = html
+    s = s.replacingOccurrences(of: "<br[^>]*>", with: "\n", options: .regularExpression)
+    s = s.replacingOccurrences(of: "<hr[^>]*>", with: "\n\n---\n\n", options: .regularExpression)
+    let blocks: [(String, String, String)] = [
+        ("h1", "\n\n# ", "\n\n"), ("h2", "\n\n## ", "\n\n"),
+        ("h3", "\n\n### ", "\n\n"), ("h4", "\n\n#### ", "\n\n"),
+        ("h5", "\n\n##### ", "\n\n"), ("h6", "\n\n###### ", "\n\n"),
+        ("blockquote", "\n\n> ", "\n\n"),
+        ("p", "\n\n", "\n\n"),
+        ("li", "\n- ", ""),
+    ]
+    for (tag, prefix, suffix) in blocks {
+        s = s.replacingOccurrences(
+            of: "<\(tag)\\b[^>]*>", with: prefix, options: [.regularExpression, .caseInsensitive])
+        s = s.replacingOccurrences(of: "</\(tag)>", with: suffix, options: [.regularExpression, .caseInsensitive])
+    }
+    let inlines: [(String, String)] = [
+        ("strong", "**"), ("b", "**"),
+        ("em", "*"), ("i", "*"),
+        ("code", "`"),
+    ]
+    for (tag, marker) in inlines {
+        s = s.replacingOccurrences(
+            of: "<\(tag)\\b[^>]*>", with: marker, options: [.regularExpression, .caseInsensitive])
+        s = s.replacingOccurrences(of: "</\(tag)>", with: marker, options: [.regularExpression, .caseInsensitive])
+    }
+    s = s.replacingOccurrences(of: "<pre\\b[^>]*>", with: "\n\n```\n", options: [.regularExpression, .caseInsensitive])
+    s = s.replacingOccurrences(of: "</pre>", with: "\n```\n\n", options: [.regularExpression, .caseInsensitive])
+    if let regex = try? NSRegularExpression(
+        pattern: "<a\\s+[^>]*\\bhref=[\"']([^\"']+)[\"'][^>]*>([\\s\\S]*?)</a>",
+        options: .caseInsensitive
+    ) {
+        let nsResult = NSMutableString(string: s)
+        let matches = regex.matches(in: s, range: NSRange(s.startIndex..., in: s)).reversed()
+        for match in matches {
+            let href = (s as NSString).substring(with: match.range(at: 1))
+            let text = (s as NSString).substring(with: match.range(at: 2))
+                .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            nsResult.replaceCharacters(in: match.range, with: "[\(text)](\(href))")
+        }
+        s = nsResult as String
+    }
+    s = s.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+    s = decodeHTMLEntities(s)
+    s = s.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+    return s.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
 // MARK: - Plugin Context
 
-private class PluginContext {
+private final class PluginContext {
     let searchTool = SearchTool()
     let searchNewsTool = SearchNewsTool()
     let searchImagesTool = SearchImagesTool()
+    let searchAndExtractTool = SearchAndExtractTool()
 }
 
 // MARK: - C ABI
@@ -1164,16 +1142,50 @@ private var api: osr_plugin_api = {
             {
               "plugin_id": "osaurus.search",
               "name": "Search",
-              "description": "Web search using DuckDuckGo (no API key required)",
+              "description": "Web search via pluggable backends. Free DDG/Brave/Bing scraping by default; optional Tavily / Brave Search API / Serper / Google CSE / Kagi / You.com when API keys are configured.",
               "license": "MIT",
-              "authors": ["Dinoki Labs"],
+              "authors": ["Osaurus Team"],
               "min_macos": "13.0",
               "min_osaurus": "0.5.0",
+              "secrets": [
+                {"id":"TAVILY_API_KEY","label":"Tavily API key","description":"Get one at https://tavily.com (best free agent search; 1000 free queries/month).","required":false,"url":"https://tavily.com"},
+                {"id":"BRAVE_SEARCH_API_KEY","label":"Brave Search API key","description":"Get one at https://api.search.brave.com.","required":false,"url":"https://api.search.brave.com"},
+                {"id":"SERPER_API_KEY","label":"Serper API key","description":"Google SERP scraping at https://serper.dev.","required":false,"url":"https://serper.dev"},
+                {"id":"GOOGLE_CSE_API_KEY","label":"Google CSE API key","description":"Google Custom Search Engine API key.","required":false,"url":"https://developers.google.com/custom-search/v1/introduction"},
+                {"id":"GOOGLE_CSE_CX","label":"Google CSE engine ID (cx)","description":"Custom Search Engine ID. Required if GOOGLE_CSE_API_KEY is set.","required":false,"url":"https://programmablesearchengine.google.com/"},
+                {"id":"KAGI_API_KEY","label":"Kagi Search API key","description":"Kagi paid search API.","required":false,"url":"https://help.kagi.com/kagi/api/search.html"},
+                {"id":"YOU_API_KEY","label":"You.com API key","description":"You.com Search API key.","required":false,"url":"https://api.you.com"}
+              ],
               "capabilities": {
                 "tools": [
-                  {"id": "search", "description": "Search the web using DuckDuckGo", "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"number"},"region":{"type":"string"}},"required":["query"]}, "requirements": [], "permission_policy": "ask"},
-                  {"id": "search_news", "description": "Search for news using DuckDuckGo", "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"number"},"timelimit":{"type":"string"}},"required":["query"]}, "requirements": [], "permission_policy": "ask"},
-                  {"id": "search_images", "description": "Search for images using DuckDuckGo", "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"number"},"size":{"type":"string"},"type":{"type":"string"}},"required":["query"]}, "requirements": [], "permission_policy": "ask"}
+                  {
+                    "id": "search",
+                    "description": "Web search. Auto-picks the best configured backend (Tavily > Brave API > Serper > Google CSE > Kagi > You.com), falling back to free DDG/Brave/Bing scraping when no API key is present. Returns deduplicated results with title, url, snippet, optional published_date and source_domain.",
+                    "parameters": {"type":"object","properties":{"query":{"type":"string","description":"Search query."},"max_results":{"type":"integer","description":"1-50. Default 10."},"offset":{"type":"integer","description":"Pagination offset (where supported). Default 0."},"site":{"type":"string","description":"Restrict to a domain (translates to 'site:' or backend-native filter)."},"filetype":{"type":"string","description":"Restrict to a file extension (e.g. 'pdf')."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"d=day, w=week, m=month, y=year."},"region":{"type":"string","description":"DDG kl region code (e.g. 'us-en'). Default 'wt-wt'."},"provider":{"type":"string","enum":["tavily","brave_api","serper","google_cse","kagi","you","ddg","brave_html","bing_html"],"description":"Pin a specific backend instead of auto-selecting."}},"required":["query"]},
+                    "requirements": [],
+                    "permission_policy": "allow"
+                  },
+                  {
+                    "id": "search_news",
+                    "description": "News-vertical search. Default time_range='w' (last week). Same backend selection as 'search'.",
+                    "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"integer"},"offset":{"type":"integer"},"site":{"type":"string"},"filetype":{"type":"string"},"time_range":{"type":"string","enum":["d","w","m","y"]},"region":{"type":"string"},"provider":{"type":"string"}},"required":["query"]},
+                    "requirements": [],
+                    "permission_policy": "allow"
+                  },
+                  {
+                    "id": "search_images",
+                    "description": "Image search via DuckDuckGo. Returns image_url, thumbnail_url, dimensions, source_domain.",
+                    "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"integer","description":"1-100. Default 20."}},"required":["query"]},
+                    "requirements": [],
+                    "permission_policy": "allow"
+                  },
+                  {
+                    "id": "search_and_extract",
+                    "description": "Run a search and Readability-extract the top N URLs in one call. Each enriched result includes 'markdown', 'title', 'byline', 'lang', 'word_count', and 'extracted'.",
+                    "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"integer","description":"1-20. Default 5."},"extract_count":{"type":"integer","description":"How many of the top results to extract. Default 3."},"provider":{"type":"string"},"time_range":{"type":"string","enum":["d","w","m","y"]},"site":{"type":"string"},"filetype":{"type":"string"},"timeout":{"type":"number","description":"Per-extract timeout in seconds. Default 25."}},"required":["query"]},
+                    "requirements": [],
+                    "permission_policy": "allow"
+                  }
                 ]
               }
             }
@@ -1194,19 +1206,38 @@ private var api: osr_plugin_api = {
         let payload = String(cString: payloadPtr)
 
         guard type == "tool" else {
-            return makeCString("{\"error\": \"Unknown capability type\"}")
+            return makeCString(
+                errorResponse(
+                    code: "UNKNOWN_CAPABILITY",
+                    message: "This plugin only handles 'tool' invocations, got '\(type)'."
+                )
+            )
         }
 
-        switch id {
-        case ctx.searchTool.name:
-            return makeCString(ctx.searchTool.run(args: payload))
-        case ctx.searchNewsTool.name:
-            return makeCString(ctx.searchNewsTool.run(args: payload))
-        case ctx.searchImagesTool.name:
-            return makeCString(ctx.searchImagesTool.run(args: payload))
-        default:
-            return makeCString("{\"error\": \"Unknown tool: \(id)\"}")
+        let result: String
+        do {
+            let data: [String: Any]
+            switch id {
+            case SearchTool.name: data = try ctx.searchTool.run(args: payload)
+            case SearchNewsTool.name: data = try ctx.searchNewsTool.run(args: payload)
+            case SearchImagesTool.name: data = try ctx.searchImagesTool.run(args: payload)
+            case SearchAndExtractTool.name: data = try ctx.searchAndExtractTool.run(args: payload)
+            default:
+                return makeCString(
+                    errorResponse(
+                        code: "UNKNOWN_TOOL",
+                        message: "Unknown tool: '\(id)'.",
+                        hint: "Available tools: search, search_news, search_images, search_and_extract."
+                    )
+                )
+            }
+            result = okResponse(data)
+        } catch let err as ToolError {
+            result = errorResponse(code: err.code, message: err.message, hint: err.hint)
+        } catch {
+            result = errorResponse(code: "INTERNAL", message: error.localizedDescription)
         }
+        return makeCString(result)
     }
 
     return api

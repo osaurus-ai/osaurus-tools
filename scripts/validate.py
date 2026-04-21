@@ -506,6 +506,30 @@ def validate_plugin_file(filepath, seen_ids):
             
     return valid
 
+def check_catalog_drift(script_dir):
+    """
+    Run scripts/regenerate-catalogs.py --check to detect drift between
+    plugins/<id>.json catalog files and the embedded dylib manifests in
+    tools/<tool>/Sources/*/Plugin.swift.
+    """
+    regen_script = os.path.join(script_dir, "regenerate-catalogs.py")
+    if not os.path.isfile(regen_script):
+        # Not present in older trees — skip silently.
+        return True
+
+    print("\nChecking catalog/manifest drift...")
+    result = subprocess.run(
+        [sys.executable, regen_script, "--check"],
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    return result.returncode == 0
+
+
 def main():
     # Look for plugins directory relative to this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -528,7 +552,12 @@ def main():
     for json_file in json_files:
         if not validate_plugin_file(json_file, seen_ids):
             failed = True
-            
+
+    # Catalog-vs-manifest drift check (covers official tools whose source
+    # lives alongside the registry; external plugins are unaffected).
+    if not check_catalog_drift(script_dir):
+        failed = True
+
     if failed:
         print("\nValidation FAILED.")
         sys.exit(1)

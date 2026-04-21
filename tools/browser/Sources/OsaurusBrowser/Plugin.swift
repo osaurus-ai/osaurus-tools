@@ -14,15 +14,11 @@ enum DetailLevel: String {
 // MARK: - Headless Browser Manager
 
 /// Manages a headless WKWebView instance for browser automation
-class HeadlessBrowser: NSObject, WKNavigationDelegate {
+class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
     private var webView: WKWebView!
     private var navigationSemaphore = DispatchSemaphore(value: 0)
     private var navigationError: Error?
     private var isLoaded = false
-
-    // Track pending network requests for networkidle detection
-    private var pendingRequests = 0
-    private var networkIdleSemaphore: DispatchSemaphore?
 
     // Element ref counter - increments with each snapshot
     private var refCounter = 0
@@ -31,6 +27,25 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate {
     private var hasNavigated = false
     private var lastNavigationURL: String?
     private var snapshotGeneration = 0
+
+    // Dialog handling — pre-registered policy applied to next dialog of each kind.
+    // Set via `setDialogPolicy(...)`; reset to `(accept:true, promptText:nil)` after use.
+    struct DialogPolicy {
+        var accept: Bool
+        var promptText: String?
+    }
+    private var pendingDialogPolicy = DialogPolicy(accept: true, promptText: nil)
+    private var lastDialog: [String: Any]?
+
+    // Multi-agent coordination: a soft lock that other agents are expected
+    // to honor cooperatively.
+    struct LockState {
+        var locked: Bool
+        var owner: String?
+        var acquiredAt: Date?
+    }
+    private var lockState = LockState(locked: false, owner: nil, acquiredAt: nil)
+    private let lockQueue = DispatchQueue(label: "osaurus.browser.lock")
 
     override init() {
         super.init()
@@ -53,15 +68,99 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate {
         config.applicationNameForUserAgent =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
+        // Inject capture scripts at document start so we record console output
+        // and network activity for `browser_console_messages` and
+        // `browser_network_requests`. Buffers live on `window.__osaurus_*`
+        // and are read back via plain `evaluateJavaScript`.
+        let captureScript = WKUserScript(
+            source: HeadlessBrowser.captureScriptSource,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        config.userContentController.addUserScript(captureScript)
+
         // Create a headless webview (no window needed)
         webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 1280, height: 800), configuration: config)
         webView.navigationDelegate = self
+        webView.uiDelegate = self
 
         // Enable JavaScript
         if #available(macOS 14.0, *) {
             webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         }
     }
+
+    /// JS injected at document start in every page. Wraps console.{log,info,warn,error,debug}
+    /// and instruments fetch + XMLHttpRequest. The agent reads the buffers via JS.
+    static let captureScriptSource: String = """
+        (function() {
+          if (window.__osaurus_capture_installed) return;
+          window.__osaurus_capture_installed = true;
+          window.__osaurus_console = [];
+          window.__osaurus_network = [];
+          var origConsole = {};
+          ['log', 'info', 'warn', 'error', 'debug'].forEach(function(level) {
+            origConsole[level] = (console[level] || console.log).bind(console);
+            console[level] = function() {
+              var args = Array.prototype.slice.call(arguments).map(function(a) {
+                try { return typeof a === 'string' ? a : JSON.stringify(a); }
+                catch (e) { return String(a); }
+              });
+              window.__osaurus_console.push({
+                level: level,
+                message: args.join(' '),
+                timestamp: Date.now(),
+                location: (new Error()).stack ? (new Error()).stack.split('\\n')[2] || '' : ''
+              });
+              if (window.__osaurus_console.length > 500) window.__osaurus_console.shift();
+              try { origConsole[level].apply(null, arguments); } catch (e) {}
+            };
+          });
+          var origFetch = window.fetch;
+          if (origFetch) {
+            window.fetch = function(input, init) {
+              var url = typeof input === 'string' ? input : (input && input.url) || '';
+              var method = (init && init.method) || (typeof input === 'object' && input.method) || 'GET';
+              var entry = { url: url, method: method.toUpperCase(), kind: 'fetch', start: Date.now() };
+              window.__osaurus_network.push(entry);
+              if (window.__osaurus_network.length > 500) window.__osaurus_network.shift();
+              return origFetch.apply(this, arguments).then(function(resp) {
+                entry.status = resp.status;
+                entry.ok = resp.ok;
+                entry.duration_ms = Date.now() - entry.start;
+                return resp;
+              }).catch(function(err) {
+                entry.status = 0;
+                entry.error = String(err);
+                entry.duration_ms = Date.now() - entry.start;
+                throw err;
+              });
+            };
+          }
+          var XHR = window.XMLHttpRequest;
+          if (XHR) {
+            var origOpen = XHR.prototype.open;
+            var origSend = XHR.prototype.send;
+            XHR.prototype.open = function(method, url) {
+              this.__osaurus_entry = { url: url, method: method.toUpperCase(), kind: 'xhr', start: Date.now() };
+              window.__osaurus_network.push(this.__osaurus_entry);
+              if (window.__osaurus_network.length > 500) window.__osaurus_network.shift();
+              return origOpen.apply(this, arguments);
+            };
+            XHR.prototype.send = function() {
+              var self = this;
+              this.addEventListener('loadend', function() {
+                if (self.__osaurus_entry) {
+                  self.__osaurus_entry.status = self.status;
+                  self.__osaurus_entry.ok = self.status >= 200 && self.status < 400;
+                  self.__osaurus_entry.duration_ms = Date.now() - self.__osaurus_entry.start;
+                }
+              });
+              return origSend.apply(this, arguments);
+            };
+          }
+        })();
+        """
 
     // MARK: - Navigation
 
@@ -1213,11 +1312,296 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate {
         navigationSemaphore.signal()
     }
 
-    // MARK: - Helpers
+    // MARK: - Console / Network capture (read buffers from page)
 
-    private func escapeSelector(_ selector: String) -> String {
-        return selector.replacingOccurrences(of: "'", with: "\\'")
+    func consoleMessages(level: String?, since: Double?, clear: Bool) -> [[String: Any]] {
+        let levelFilter = level?.lowercased() ?? "all"
+        let script = """
+            (function() {
+              try {
+                var arr = window.__osaurus_console || [];
+                return arr;
+              } catch (e) { return []; }
+            })()
+            """
+        let result = evaluateJavaScript(script)
+        var messages: [[String: Any]] = []
+        if let arr = result.result as? [[String: Any]] {
+            messages = arr
+        }
+        if levelFilter != "all" {
+            messages = messages.filter { (entry: [String: Any]) -> Bool in
+                ((entry["level"] as? String)?.lowercased() ?? "") == levelFilter
+            }
+        }
+        if let since = since {
+            let cutoff = since * 1000
+            messages = messages.filter { entry in
+                ((entry["timestamp"] as? Double) ?? 0) >= cutoff
+            }
+        }
+        if clear {
+            _ = evaluateJavaScript("window.__osaurus_console = [];")
+        }
+        return messages
     }
+
+    func networkRequests(failedOnly: Bool, methodFilter: String?, urlContains: String?, clear: Bool) -> [[String: Any]]
+    {
+        let script = """
+            (function() {
+              try { return window.__osaurus_network || []; }
+              catch (e) { return []; }
+            })()
+            """
+        let result = evaluateJavaScript(script)
+        var requests: [[String: Any]] = []
+        if let arr = result.result as? [[String: Any]] {
+            requests = arr
+        }
+        if failedOnly {
+            requests = requests.filter { entry in
+                let status = entry["status"] as? Int ?? 0
+                return status == 0 || !(200...399 ~= status)
+            }
+        }
+        if let m = methodFilter?.uppercased() {
+            requests = requests.filter { ($0["method"] as? String) == m }
+        }
+        if let needle = urlContains?.lowercased() {
+            requests = requests.filter { ($0["url"] as? String)?.lowercased().contains(needle) ?? false }
+        }
+        if clear {
+            _ = evaluateJavaScript("window.__osaurus_network = [];")
+        }
+        return requests
+    }
+
+    // MARK: - Viewport / UA
+
+    func setViewport(width: Int, height: Int) {
+        DispatchQueue.main.sync {
+            self.webView.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        }
+    }
+
+    func currentViewport() -> (width: Int, height: Int) {
+        var w = 0
+        var h = 0
+        DispatchQueue.main.sync {
+            w = Int(self.webView.frame.width)
+            h = Int(self.webView.frame.height)
+        }
+        return (w, h)
+    }
+
+    func setUserAgent(_ ua: String?) {
+        DispatchQueue.main.sync {
+            self.webView.customUserAgent = (ua?.isEmpty ?? true) ? nil : ua
+        }
+    }
+
+    func currentUserAgent() -> String? {
+        var ua: String?
+        DispatchQueue.main.sync { ua = self.webView.customUserAgent }
+        return ua
+    }
+
+    // MARK: - Cookies
+
+    func cookieStore() -> WKHTTPCookieStore {
+        return webView.configuration.websiteDataStore.httpCookieStore
+    }
+
+    func getCookies(domain: String?) -> [[String: Any]] {
+        let semaphore = DispatchSemaphore(value: 0)
+        var cookies: [HTTPCookie] = []
+        DispatchQueue.main.async {
+            self.cookieStore().getAllCookies { c in
+                cookies = c
+                semaphore.signal()
+            }
+        }
+        _ = semaphore.wait(timeout: .now() + 5)
+        let filtered = domain.map { d in cookies.filter { $0.domain.contains(d) } } ?? cookies
+        return filtered.map { c in
+            [
+                "name": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "secure": c.isSecure,
+                "http_only": c.isHTTPOnly,
+                "expires": c.expiresDate?.timeIntervalSince1970 as Any? ?? NSNull(),
+            ]
+        }
+    }
+
+    func setCookie(_ props: [String: Any]) -> (ok: Bool, error: String?) {
+        var attrs: [HTTPCookiePropertyKey: Any] = [:]
+        guard let name = props["name"] as? String,
+            let value = props["value"] as? String,
+            let domain = props["domain"] as? String
+        else {
+            return (false, "name, value, and domain are required")
+        }
+        attrs[.name] = name
+        attrs[.value] = value
+        attrs[.domain] = domain
+        attrs[.path] = (props["path"] as? String) ?? "/"
+        if let secure = props["secure"] as? Bool, secure { attrs[.secure] = "TRUE" }
+        if let expires = props["expires"] as? Double {
+            attrs[.expires] = Date(timeIntervalSince1970: expires)
+        }
+        guard let cookie = HTTPCookie(properties: attrs) else {
+            return (false, "Failed to construct cookie from properties")
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            self.cookieStore().setCookie(cookie) { semaphore.signal() }
+        }
+        _ = semaphore.wait(timeout: .now() + 5)
+        return (true, nil)
+    }
+
+    func clearCookies(domain: String?) {
+        let cookies = getCookies(domain: domain)
+        let semaphore = DispatchSemaphore(value: 0)
+        var remaining = cookies.count
+        if remaining == 0 { return }
+        DispatchQueue.main.async {
+            for c in cookies {
+                guard let name = c["name"] as? String,
+                    let dom = c["domain"] as? String,
+                    let path = c["path"] as? String,
+                    let cookie = HTTPCookie(properties: [
+                        .name: name, .value: "", .domain: dom, .path: path,
+                    ])
+                else {
+                    remaining -= 1
+                    if remaining == 0 { semaphore.signal() }
+                    continue
+                }
+                self.cookieStore().delete(cookie) {
+                    remaining -= 1
+                    if remaining == 0 { semaphore.signal() }
+                }
+            }
+        }
+        _ = semaphore.wait(timeout: .now() + 5)
+    }
+
+    // MARK: - Dialogs
+
+    func setDialogPolicy(accept: Bool, promptText: String?) {
+        pendingDialogPolicy = DialogPolicy(accept: accept, promptText: promptText)
+    }
+
+    func recordedDialog() -> [String: Any]? {
+        return lastDialog
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptAlertPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping () -> Void
+    ) {
+        lastDialog = ["kind": "alert", "message": message, "timestamp": Date().timeIntervalSince1970]
+        completionHandler()
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptConfirmPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        lastDialog = [
+            "kind": "confirm",
+            "message": message,
+            "timestamp": Date().timeIntervalSince1970,
+            "accepted": pendingDialogPolicy.accept,
+        ]
+        let accept = pendingDialogPolicy.accept
+        pendingDialogPolicy = DialogPolicy(accept: true, promptText: nil)
+        completionHandler(accept)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptTextInputPanelWithPrompt prompt: String,
+        defaultText: String?,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (String?) -> Void
+    ) {
+        let text = pendingDialogPolicy.accept ? (pendingDialogPolicy.promptText ?? defaultText ?? "") : nil
+        lastDialog = [
+            "kind": "prompt",
+            "message": prompt,
+            "default_text": defaultText ?? "",
+            "response": text as Any? ?? NSNull(),
+            "timestamp": Date().timeIntervalSince1970,
+        ]
+        pendingDialogPolicy = DialogPolicy(accept: true, promptText: nil)
+        completionHandler(text)
+    }
+
+    // MARK: - Lock state
+
+    func acquireLock(owner: String?) -> (ok: Bool, owner: String?) {
+        var success = false
+        var current: String?
+        lockQueue.sync {
+            if lockState.locked {
+                current = lockState.owner
+                success = false
+            } else {
+                lockState = LockState(locked: true, owner: owner ?? "anonymous", acquiredAt: Date())
+                current = lockState.owner
+                success = true
+            }
+        }
+        return (success, current)
+    }
+
+    func releaseLock(owner: String?) -> Bool {
+        var success = false
+        lockQueue.sync {
+            if !lockState.locked { return }
+            if owner == nil || lockState.owner == owner {
+                lockState = LockState(locked: false, owner: nil, acquiredAt: nil)
+                success = true
+            }
+        }
+        return success
+    }
+
+    func currentLock() -> [String: Any] {
+        var info: [String: Any] = ["locked": false]
+        lockQueue.sync {
+            info["locked"] = lockState.locked
+            if let owner = lockState.owner { info["owner"] = owner }
+            if let date = lockState.acquiredAt {
+                info["acquired_at"] = date.timeIntervalSince1970
+            }
+        }
+        return info
+    }
+
+}
+
+/// Escape a CSS selector for safe interpolation inside a single-quoted JS
+/// string literal. Handles backslashes, single quotes, newlines, and other
+/// JS-string-breaking chars. Free function so it's unit-testable.
+func escapeSelector(_ selector: String) -> String {
+    return
+        selector
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "'", with: "\\'")
+        .replacingOccurrences(of: "\n", with: "\\n")
+        .replacingOccurrences(of: "\r", with: "\\r")
+        .replacingOccurrences(of: "\t", with: "\\t")
 }
 
 // MARK: - JSON Helpers
@@ -1907,6 +2291,230 @@ class PluginContext {
             detail: detail,
             actionPrefix: "Action: browser_do completed (\(input.actions.count) actions)")
     }
+
+    // MARK: - New tools (2.0.0)
+    //
+    // These tools use the standard JSON envelope:
+    //   { "ok": true,  "data": {...} }
+    //   { "ok": false, "error": {"code","message","hint"?} }
+    // The legacy tools above retain their pre-2.0.0 plain-text snapshot output
+    // for back-compat with the existing test suite.
+
+    private func envelopeOK(_ data: [String: Any]) -> String {
+        return jsonEnvelope(["ok": true, "data": data])
+    }
+
+    private func envelopeError(_ code: String, _ message: String, hint: String? = nil) -> String {
+        var error: [String: Any] = ["code": code, "message": message]
+        if let hint = hint { error["hint"] = hint }
+        return jsonEnvelope(["ok": false, "error": error])
+    }
+
+    private func jsonEnvelope(_ obj: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(obj),
+            let data = try? JSONSerialization.data(
+                withJSONObject: obj,
+                options: [.sortedKeys, .withoutEscapingSlashes]
+            ),
+            let str = String(data: data, encoding: .utf8)
+        else {
+            return #"{"ok":false,"error":{"code":"INTERNAL","message":"serialization failed"}}"#
+        }
+        return str
+    }
+
+    func consoleMessages(args: String) -> String {
+        struct Args: Decodable {
+            let level: String?
+            let since: Double?
+            let clear: Bool?
+        }
+        let parsed =
+            (args.data(using: .utf8).flatMap { try? JSONDecoder().decode(Args.self, from: $0) })
+            ?? Args(level: nil, since: nil, clear: nil)
+        let messages = browser.consoleMessages(level: parsed.level, since: parsed.since, clear: parsed.clear ?? false)
+        return envelopeOK([
+            "count": messages.count,
+            "messages": messages,
+        ])
+    }
+
+    func networkRequests(args: String) -> String {
+        struct Args: Decodable {
+            let failed_only: Bool?
+            let method: String?
+            let url_contains: String?
+            let clear: Bool?
+        }
+        let parsed =
+            (args.data(using: .utf8).flatMap { try? JSONDecoder().decode(Args.self, from: $0) })
+            ?? Args(failed_only: nil, method: nil, url_contains: nil, clear: nil)
+        let entries = browser.networkRequests(
+            failedOnly: parsed.failed_only ?? false,
+            methodFilter: parsed.method,
+            urlContains: parsed.url_contains,
+            clear: parsed.clear ?? false
+        )
+        return envelopeOK([
+            "count": entries.count,
+            "requests": entries,
+        ])
+    }
+
+    func handleDialog(args: String) -> String {
+        struct Args: Decodable {
+            let action: String?
+            let prompt_text: String?
+        }
+        let parsed =
+            (args.data(using: .utf8).flatMap { try? JSONDecoder().decode(Args.self, from: $0) })
+            ?? Args(action: nil, prompt_text: nil)
+        let action = (parsed.action ?? "accept").lowercased()
+        switch action {
+        case "accept":
+            browser.setDialogPolicy(accept: true, promptText: parsed.prompt_text)
+        case "dismiss":
+            browser.setDialogPolicy(accept: false, promptText: nil)
+        case "status":
+            break
+        default:
+            return envelopeError(
+                "INVALID_ARGS",
+                "Unknown dialog action '\(action)'.",
+                hint: "Use 'accept', 'dismiss', or 'status'."
+            )
+        }
+        var data: [String: Any] = ["policy": action]
+        if let last = browser.recordedDialog() { data["last_dialog"] = last }
+        return envelopeOK(data)
+    }
+
+    func setViewport(args: String) -> String {
+        struct Args: Decodable {
+            let width: Int
+            let height: Int
+        }
+        guard let data = args.data(using: .utf8),
+            let input = try? JSONDecoder().decode(Args.self, from: data)
+        else {
+            return envelopeError("INVALID_ARGS", "Required: width (int), height (int).")
+        }
+        browser.setViewport(width: input.width, height: input.height)
+        let v = browser.currentViewport()
+        return envelopeOK(["width": v.width, "height": v.height])
+    }
+
+    func setUserAgent(args: String) -> String {
+        struct Args: Decodable { let user_agent: String? }
+        let parsed =
+            (args.data(using: .utf8).flatMap { try? JSONDecoder().decode(Args.self, from: $0) })
+            ?? Args(user_agent: nil)
+        browser.setUserAgent(parsed.user_agent)
+        return envelopeOK([
+            "user_agent": browser.currentUserAgent() ?? NSNull()
+        ])
+    }
+
+    func cookies(args: String) -> String {
+        struct Args: Decodable {
+            let action: String?
+            let domain: String?
+            let cookie: [String: AnyJSON]?
+        }
+        let parsed =
+            (args.data(using: .utf8).flatMap { try? JSONDecoder().decode(Args.self, from: $0) })
+            ?? Args(action: nil, domain: nil, cookie: nil)
+        let action = (parsed.action ?? "get").lowercased()
+        switch action {
+        case "get":
+            return envelopeOK(["cookies": browser.getCookies(domain: parsed.domain)])
+        case "set":
+            guard let cookieDict = parsed.cookie else {
+                return envelopeError("INVALID_ARGS", "Required: cookie object with name, value, domain.")
+            }
+            let raw = cookieDict.mapValues { $0.value }
+            let result = browser.setCookie(raw)
+            if !result.ok {
+                return envelopeError("COOKIE_SET_FAILED", result.error ?? "unknown")
+            }
+            return envelopeOK(["set": true])
+        case "clear":
+            browser.clearCookies(domain: parsed.domain)
+            return envelopeOK(["cleared": true])
+        default:
+            return envelopeError(
+                "INVALID_ARGS",
+                "Unknown cookies action '\(action)'.",
+                hint: "Use 'get', 'set', or 'clear'."
+            )
+        }
+    }
+
+    func lock(args: String) -> String {
+        struct Args: Decodable {
+            let action: String?
+            let owner: String?
+        }
+        let parsed =
+            (args.data(using: .utf8).flatMap { try? JSONDecoder().decode(Args.self, from: $0) })
+            ?? Args(action: nil, owner: nil)
+        let action = (parsed.action ?? "lock").lowercased()
+        switch action {
+        case "lock":
+            let result = browser.acquireLock(owner: parsed.owner)
+            if !result.ok {
+                return envelopeError(
+                    "LOCK_HELD",
+                    "Browser is already locked by '\(result.owner ?? "unknown")'.",
+                    hint: "Wait and retry, or call browser_lock with action='unlock' (if you own it)."
+                )
+            }
+            return envelopeOK(["locked": true, "owner": result.owner ?? NSNull()])
+        case "unlock":
+            let ok = browser.releaseLock(owner: parsed.owner)
+            if !ok {
+                return envelopeError(
+                    "LOCK_NOT_OWNED",
+                    "Cannot release a lock you don't own.",
+                    hint: "Pass the same owner string that acquired the lock."
+                )
+            }
+            return envelopeOK(["locked": false])
+        case "status":
+            return envelopeOK(browser.currentLock())
+        default:
+            return envelopeError(
+                "INVALID_ARGS",
+                "Unknown lock action '\(action)'.",
+                hint: "Use 'lock', 'unlock', or 'status'."
+            )
+        }
+    }
+}
+
+/// JSON-decodable wrapper for arbitrary values (used in cookies args).
+struct AnyJSON: Decodable {
+    let value: Any
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            value = NSNull()
+        } else if let v = try? container.decode(Bool.self) {
+            value = v
+        } else if let v = try? container.decode(Int.self) {
+            value = v
+        } else if let v = try? container.decode(Double.self) {
+            value = v
+        } else if let v = try? container.decode(String.self) {
+            value = v
+        } else if let v = try? container.decode([String: AnyJSON].self) {
+            value = v.mapValues { $0.value }
+        } else if let v = try? container.decode([AnyJSON].self) {
+            value = v.map { $0.value }
+        } else {
+            value = NSNull()
+        }
+    }
 }
 
 // MARK: - C ABI
@@ -1959,9 +2567,9 @@ private var api: osr_plugin_api = {
             {
               "plugin_id": "osaurus.browser",
               "name": "Browser",
-              "description": "Agent-friendly headless browser with ref-based interactions. Actions auto-return page snapshots so you rarely need to call browser_snapshot separately.",
+              "description": "Agent-friendly headless WebKit browser. Element refs from snapshots, batched actions, console & network inspection, dialog handling, viewport / UA control, cookies, and a cooperative lock for multi-agent safety.",
               "license": "MIT",
-              "authors": ["Dinoki Labs"],
+              "authors": ["Osaurus Team"],
               "min_macos": "13.0",
               "min_osaurus": "0.5.0",
               "capabilities": {
@@ -2172,6 +2780,107 @@ private var api: osr_plugin_api = {
                     },
                     "requirements": [],
                     "permission_policy": "ask"
+                  },
+                  {
+                    "id": "browser_console_messages",
+                    "description": "Read JavaScript console output captured since the page loaded (or since the last clear). Returns level, message, timestamp (ms epoch), and call-site for each entry.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "level": {"type": "string", "enum": ["all", "log", "info", "warn", "error", "debug"], "description": "Filter by level. Default 'all'."},
+                        "since": {"type": "number", "description": "Unix seconds. Only return messages at or after this time."},
+                        "clear": {"type": "boolean", "description": "Clear the buffer after returning. Default false."}
+                      },
+                      "required": []
+                    },
+                    "requirements": [],
+                    "permission_policy": "allow"
+                  },
+                  {
+                    "id": "browser_network_requests",
+                    "description": "List fetch/XHR requests made by the page. Includes method, url, status, ok, duration_ms.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "failed_only": {"type": "boolean", "description": "Only return requests with status 0 or 4xx/5xx."},
+                        "method": {"type": "string", "description": "Filter by HTTP method (GET, POST, etc.)."},
+                        "url_contains": {"type": "string", "description": "Filter by substring in URL."},
+                        "clear": {"type": "boolean", "description": "Clear the buffer after returning. Default false."}
+                      },
+                      "required": []
+                    },
+                    "requirements": [],
+                    "permission_policy": "allow"
+                  },
+                  {
+                    "id": "browser_handle_dialog",
+                    "description": "Pre-register a policy for the next JavaScript dialog (alert/confirm/prompt). Call BEFORE the action that triggers the dialog. Default policy is 'accept'.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "action": {"type": "string", "enum": ["accept", "dismiss", "status"], "description": "accept=OK/Yes/use prompt_text; dismiss=Cancel/No/null; status=read last dialog."},
+                        "prompt_text": {"type": "string", "description": "Text to fill into a window.prompt() dialog when action='accept'."}
+                      },
+                      "required": []
+                    },
+                    "requirements": [],
+                    "permission_policy": "ask"
+                  },
+                  {
+                    "id": "browser_set_viewport",
+                    "description": "Resize the headless WebKit viewport. Useful for testing responsive layouts.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "width": {"type": "integer", "description": "Pixels."},
+                        "height": {"type": "integer", "description": "Pixels."}
+                      },
+                      "required": ["width", "height"]
+                    },
+                    "requirements": [],
+                    "permission_policy": "ask"
+                  },
+                  {
+                    "id": "browser_set_user_agent",
+                    "description": "Override the User-Agent header for subsequent navigations. Pass an empty string or omit user_agent to reset to the WebKit default.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "user_agent": {"type": "string", "description": "Full UA string. Empty/null restores default."}
+                      },
+                      "required": []
+                    },
+                    "requirements": [],
+                    "permission_policy": "ask"
+                  },
+                  {
+                    "id": "browser_cookies",
+                    "description": "Inspect, set, or clear cookies in the headless WebKit cookie store.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "action": {"type": "string", "enum": ["get", "set", "clear"], "description": "Default 'get'."},
+                        "domain": {"type": "string", "description": "Filter (get/clear) by domain substring."},
+                        "cookie": {"type": "object", "description": "For action='set': {name, value, domain, path?, secure?, expires?(unix seconds)}."}
+                      },
+                      "required": []
+                    },
+                    "requirements": [],
+                    "permission_policy": "ask"
+                  },
+                  {
+                    "id": "browser_lock",
+                    "description": "Cooperative lock for multi-agent safety. Call action='lock' before a critical sequence and action='unlock' after. Other agents are expected to honor this lock; it is advisory, not enforced.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "action": {"type": "string", "enum": ["lock", "unlock", "status"], "description": "Default 'lock'."},
+                        "owner": {"type": "string", "description": "Free-form owner string (agent name, task id, etc.). Required to release the lock you acquired."}
+                      },
+                      "required": []
+                    },
+                    "requirements": [],
+                    "permission_policy": "allow"
                   }
                 ]
               }
@@ -2221,6 +2930,20 @@ private var api: osr_plugin_api = {
             return makeCString(ctx.executeScript(args: payload))
         case "browser_do":
             return makeCString(ctx.batchDo(args: payload))
+        case "browser_console_messages":
+            return makeCString(ctx.consoleMessages(args: payload))
+        case "browser_network_requests":
+            return makeCString(ctx.networkRequests(args: payload))
+        case "browser_handle_dialog":
+            return makeCString(ctx.handleDialog(args: payload))
+        case "browser_set_viewport":
+            return makeCString(ctx.setViewport(args: payload))
+        case "browser_set_user_agent":
+            return makeCString(ctx.setUserAgent(args: payload))
+        case "browser_cookies":
+            return makeCString(ctx.cookies(args: payload))
+        case "browser_lock":
+            return makeCString(ctx.lock(args: payload))
         default:
             return makeCString("{\"error\": \"Unknown tool: \(id)\"}")
         }

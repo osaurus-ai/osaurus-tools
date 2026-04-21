@@ -94,10 +94,15 @@ final class ManifestTests: XCTestCase {
 
     func testAllToolsExist() {
         let expectedTools = [
+            // legacy
             "browser_navigate", "browser_snapshot", "browser_click",
             "browser_type", "browser_select", "browser_hover", "browser_scroll",
             "browser_do", "browser_press_key", "browser_wait_for",
             "browser_screenshot", "browser_execute_script",
+            // 2.0.0 additions
+            "browser_console_messages", "browser_network_requests",
+            "browser_handle_dialog", "browser_set_viewport",
+            "browser_set_user_agent", "browser_cookies", "browser_lock",
         ]
 
         let toolIds = getTools().compactMap { $0["id"] as? String }
@@ -105,5 +110,80 @@ final class ManifestTests: XCTestCase {
         for expected in expectedTools {
             XCTAssertTrue(toolIds.contains(expected), "Missing tool: \(expected)")
         }
+    }
+
+    // MARK: - 2.0.0 additions
+
+    func testBrandingIsOsaurusTeam() {
+        XCTAssertEqual(manifest["authors"] as? [String], ["Osaurus Team"])
+    }
+
+    func testNewToolsHaveStandardEnvelopeShape() {
+        // Each new inspection tool must declare its parameters.
+        let newTools = [
+            "browser_console_messages", "browser_network_requests",
+            "browser_handle_dialog", "browser_set_viewport",
+            "browser_set_user_agent", "browser_cookies", "browser_lock",
+        ]
+        for id in newTools {
+            guard let tool = getTool(id: id) else {
+                XCTFail("missing tool \(id)")
+                continue
+            }
+            XCTAssertNotNil(tool["parameters"], "\(id) is missing parameters")
+            XCTAssertNotNil(tool["description"], "\(id) is missing description")
+            XCTAssertNotNil(tool["permission_policy"], "\(id) is missing permission_policy")
+        }
+    }
+
+    func testSetViewportRequiresWidthAndHeight() {
+        guard let tool = getTool(id: "browser_set_viewport"),
+            let params = tool["parameters"] as? [String: Any],
+            let required = params["required"] as? [String]
+        else {
+            XCTFail("browser_set_viewport parameters not found")
+            return
+        }
+        XCTAssertTrue(required.contains("width"), "set_viewport must require 'width'")
+        XCTAssertTrue(required.contains("height"), "set_viewport must require 'height'")
+    }
+
+    func testCookiesActionEnumIsExhaustive() {
+        guard let tool = getTool(id: "browser_cookies"),
+            let params = tool["parameters"] as? [String: Any],
+            let props = params["properties"] as? [String: Any],
+            let action = props["action"] as? [String: Any],
+            let values = action["enum"] as? [String]
+        else {
+            XCTFail("browser_cookies action enum not found")
+            return
+        }
+        XCTAssertEqual(Set(values), Set(["get", "set", "clear"]))
+    }
+
+    func testLockActionEnumIsExhaustive() {
+        guard let tool = getTool(id: "browser_lock"),
+            let params = tool["parameters"] as? [String: Any],
+            let props = params["properties"] as? [String: Any],
+            let action = props["action"] as? [String: Any],
+            let values = action["enum"] as? [String]
+        else {
+            XCTFail("browser_lock action enum not found")
+            return
+        }
+        XCTAssertEqual(Set(values), Set(["lock", "unlock", "status"]))
+    }
+
+    func testHandleDialogActionEnumIsExhaustive() {
+        guard let tool = getTool(id: "browser_handle_dialog"),
+            let params = tool["parameters"] as? [String: Any],
+            let props = params["properties"] as? [String: Any],
+            let action = props["action"] as? [String: Any],
+            let values = action["enum"] as? [String]
+        else {
+            XCTFail("browser_handle_dialog action enum not found")
+            return
+        }
+        XCTAssertEqual(Set(values), Set(["accept", "dismiss", "status"]))
     }
 }

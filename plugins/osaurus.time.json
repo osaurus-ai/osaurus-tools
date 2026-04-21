@@ -1,19 +1,41 @@
 {
   "plugin_id": "osaurus.time",
-  "name": "Osaurus Time",
-  "description": "Time and date utilities for Osaurus",
+  "name": "Time",
+  "description": "Date and time arithmetic across timezones — current time, parsing, formatting, conversions, durations, diffs.",
   "homepage": "https://github.com/osaurus-ai/osaurus-tools",
   "license": "MIT",
-  "authors": ["Osaurus Team"],
+  "authors": [
+    "Osaurus Team"
+  ],
   "capabilities": {
     "tools": [
       {
         "name": "current_time",
-        "description": "Get the current date and time, optionally in a specific timezone"
+        "description": "Get the current date and time, optionally in a specific IANA timezone."
       },
       {
         "name": "format_date",
-        "description": "Format a timestamp or date string into a specified format"
+        "description": "Format a Unix timestamp or date string into a chosen format."
+      },
+      {
+        "name": "parse_date",
+        "description": "Parse a date string into a Unix timestamp + ISO 8601 in the given timezone. Use this before any date arithmetic."
+      },
+      {
+        "name": "convert_timezone",
+        "description": "Re-express an instant in a different timezone. Returns the same wall instant projected into the target zone."
+      },
+      {
+        "name": "add_duration",
+        "description": "Add (or subtract) a duration from a date. Pass either an ISO 8601 duration like 'P1DT2H' or a raw 'seconds' value."
+      },
+      {
+        "name": "diff_dates",
+        "description": "Compute the difference between two dates. Returns total seconds, an ISO 8601 duration, and a human summary."
+      },
+      {
+        "name": "list_timezones",
+        "description": "List all known IANA timezone identifiers, optionally filtered by prefix. Use this to validate user-supplied zones."
       }
     ]
   },
@@ -85,5 +107,7 @@
   ],
   "public_keys": {
     "minisign": "RWTBNLjKflgtwJIKPYHuGjVNR8Huce4PvIRgLzxsd5DrdvB+I5KjeeC3"
-  }
+  },
+  "min_macos": "13.0",
+  "min_osaurus": "0.5.0"
 }

@@ -118,7 +118,7 @@ jobs:
 
       - name: Build all plugins
         run: |
-          for tool in time git browser fetch search filesystem; do
+          for tool in time browser fetch search; do
             echo "Building $tool..."
             cd tools/$tool
             swift build -c release

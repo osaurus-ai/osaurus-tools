@@ -1,23 +1,29 @@
 {
   "plugin_id": "osaurus.search",
-  "name": "Osaurus Search",
-  "description": "Web search using DuckDuckGo (no API key required)",
+  "name": "Search",
+  "description": "Web search via pluggable backends. Free DDG/Brave/Bing scraping by default; optional Tavily / Brave Search API / Serper / Google CSE / Kagi / You.com when API keys are configured.",
   "homepage": "https://github.com/osaurus-ai/osaurus-tools",
   "license": "MIT",
-  "authors": ["Osaurus Team"],
+  "authors": [
+    "Osaurus Team"
+  ],
   "capabilities": {
     "tools": [
       {
         "name": "search",
-        "description": "Search the web using DuckDuckGo"
+        "description": "Web search. Auto-picks the best configured backend (Tavily > Brave API > Serper > Google CSE > Kagi > You.com), falling back to free DDG/Brave/Bing scraping when no API key is present. Returns deduplicated results with title, url, snippet, optional published_date and source_domain."
       },
       {
         "name": "search_news",
-        "description": "Search for news articles using DuckDuckGo"
+        "description": "News-vertical search. Default time_range='w' (last week). Same backend selection as 'search'."
       },
       {
         "name": "search_images",
-        "description": "Search for images using DuckDuckGo"
+        "description": "Image search via DuckDuckGo. Returns image_url, thumbnail_url, dimensions, source_domain."
+      },
+      {
+        "name": "search_and_extract",
+        "description": "Run a search and Readability-extract the top N URLs in one call. Each enriched result includes 'markdown', 'title', 'byline', 'lang', 'word_count', and 'extracted'."
       }
     ]
   },
@@ -105,5 +111,58 @@
   ],
   "public_keys": {
     "minisign": "RWTBNLjKflgtwJIKPYHuGjVNR8Huce4PvIRgLzxsd5DrdvB+I5KjeeC3"
-  }
+  },
+  "min_macos": "13.0",
+  "min_osaurus": "0.5.0",
+  "secrets": [
+    {
+      "id": "TAVILY_API_KEY",
+      "label": "Tavily API key",
+      "description": "Get one at https://tavily.com (best free agent search; 1000 free queries/month).",
+      "required": false,
+      "url": "https://tavily.com"
+    },
+    {
+      "id": "BRAVE_SEARCH_API_KEY",
+      "label": "Brave Search API key",
+      "description": "Get one at https://api.search.brave.com.",
+      "required": false,
+      "url": "https://api.search.brave.com"
+    },
+    {
+      "id": "SERPER_API_KEY",
+      "label": "Serper API key",
+      "description": "Google SERP scraping at https://serper.dev.",
+      "required": false,
+      "url": "https://serper.dev"
+    },
+    {
+      "id": "GOOGLE_CSE_API_KEY",
+      "label": "Google CSE API key",
+      "description": "Google Custom Search Engine API key.",
+      "required": false,
+      "url": "https://developers.google.com/custom-search/v1/introduction"
+    },
+    {
+      "id": "GOOGLE_CSE_CX",
+      "label": "Google CSE engine ID (cx)",
+      "description": "Custom Search Engine ID. Required if GOOGLE_CSE_API_KEY is set.",
+      "required": false,
+      "url": "https://programmablesearchengine.google.com/"
+    },
+    {
+      "id": "KAGI_API_KEY",
+      "label": "Kagi Search API key",
+      "description": "Kagi paid search API.",
+      "required": false,
+      "url": "https://help.kagi.com/kagi/api/search.html"
+    },
+    {
+      "id": "YOU_API_KEY",
+      "label": "You.com API key",
+      "description": "You.com Search API key.",
+      "required": false,
+      "url": "https://api.you.com"
+    }
+  ]
 }

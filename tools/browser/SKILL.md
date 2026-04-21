@@ -1,9 +1,9 @@
 ---
 name: osaurus-browser
-description: Teaches the agent how to use the headless browser tools effectively — workflows, element refs, batching, and detail levels.
+description: Teaches the agent how to use the headless browser tools — refs, batching, detail levels, console/network inspection, dialogs, viewport/UA, cookies, and lock/unlock for multi-agent safety.
 metadata:
   author: Osaurus
-  version: "1.2.0"
+  version: "2.0.0"
 ---
 
 # Osaurus Browser
@@ -87,6 +87,75 @@ Visual debugging — saves a PNG. Use `full_page: true` for the entire scrollabl
 
 Escape hatch for arbitrary JavaScript.
 
+## Inspection tools (2.0.0)
+
+These tools return the standard JSON envelope (`{ok, data}` or `{ok:false, error:{code,message,hint?}}`).
+
+### browser_console_messages
+
+Read JavaScript console output captured since page load. Useful for diagnosing client-side errors.
+
+```json
+{ "level": "error", "clear": false }
+```
+
+Returns `data.messages: [{level, message, timestamp, location}]`.
+
+### browser_network_requests
+
+List fetch/XHR requests the page has made. Use `failed_only: true` to surface 4xx/5xx and network errors.
+
+```json
+{ "failed_only": true, "url_contains": "/api/" }
+```
+
+Returns `data.requests: [{method, url, status, ok, duration_ms, kind}]`.
+
+### browser_handle_dialog
+
+**Pre-register** the policy for the next `alert` / `confirm` / `prompt` *before* the action that triggers it.
+
+```json
+{ "action": "accept", "prompt_text": "yes" }
+{ "action": "dismiss" }
+{ "action": "status" }
+```
+
+Default policy if you never call this is `accept`.
+
+## Environment tools
+
+### browser_set_viewport
+
+Resize the headless WebKit viewport (e.g. mobile-emulation widths).
+
+### browser_set_user_agent
+
+Override the User-Agent header for subsequent navigations. Pass empty/null to reset.
+
+### browser_cookies
+
+```json
+{ "action": "get", "domain": "example.com" }
+{ "action": "set", "cookie": { "name": "x", "value": "y", "domain": "example.com" } }
+{ "action": "clear", "domain": "example.com" }
+```
+
+## Multi-agent coordination
+
+### browser_lock
+
+Cooperative lock so two agents don't fight over the same headless browser. Advisory only — other agents are expected to honor it.
+
+```json
+{ "action": "lock", "owner": "agent-alice" }
+... do work ...
+{ "action": "unlock", "owner": "agent-alice" }
+{ "action": "status" }
+```
+
+If `lock` returns `{ok: false, error: {code: "LOCK_HELD", ...}}`, wait and retry.
+
 ## Tips
 
 - Always start with `browser_navigate` — it gives you the refs you need.
@@ -94,3 +163,6 @@ Escape hatch for arbitrary JavaScript.
 - Use `detail: "none"` for intermediate actions where you already know the next step.
 - If refs go stale (page changed unexpectedly), call `browser_snapshot` to get fresh ones.
 - For SPAs, use `wait_until: "networkidle"` on navigate, or `wait_after: "domstable"` on browser_do.
+- Prefer **refs over selectors**. CSS selectors are escaped for safety, but a ref is unambiguous.
+- After triggering a JS error you suspect, call `browser_console_messages({"level": "error"})` to confirm.
+- Before form submissions that show a confirm dialog, call `browser_handle_dialog({"action": "accept"})`.
