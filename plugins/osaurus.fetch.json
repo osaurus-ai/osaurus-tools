@@ -45,7 +45,7 @@
           "sha256": "8110ad611667acfe24bc9b8130a5bbd0b13b67c3753ef515eaa468875da6d7f1",
           "size": 43874,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwM5RnYSNY9NgXFyPKUQy2sDGZICJwFs5GzhD1qrt/r8Jd4THM06jSXMzEpBP//D9VivUN/pY0Lg3msKafas1Ewk=\ntrusted comment: timestamp:1764507409\tfile:osaurus.fetch-1.0.2.zip\njdA5NDV3p3jYvhiuyFSsRxv6+/kO0PFW9G2n87qP3b+e0l2Cnrz15cuQm8g/iilSK6zerXTMJMFYynDBI9SDAQ=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViRqCeT1Qa7dSIcfau9ZiBBUQ0vCbTM3FN1ETgl23W3VaXw2fHLPsqEyvSQQQN24lSocZlaNajs1bMpEmDeYluQE=\ntrusted comment: file:osaurus.fetch-1.0.2.zip\noE6/v9SWAIHuInB+oa8v6RemU13+kgmvlH4Q1gZSkJAP5iBveW3v3xQQLnIGdF0YzqYq6KCIRfCzlQPVDx9sAA==\n"
           }
         }
       ]
@@ -61,7 +61,7 @@
           "sha256": "bb5738cd383924fcba563a755fa1ca5fae7b8170aafdb46b9f5a103ab512294b",
           "size": 38736,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwC00ISKtrogwpunNAT2WNaZQqi3OxO9vB5tO9ws0fl1c2OHPjCNFPdHaFhOwkLI8ZIsDEjD8s8WZ7SQK/KTNPQk=\ntrusted comment: timestamp:1764505114\tfile:osaurus.fetch-1.0.1.zip\noPoPZeQOdkL4oTkuXdci2nIkFxntv3yR/dvi5ygIW4s/NJT0QTmtZo4zxjDDVIC7HGOkzlHn1YGEiJg6Gth1BQ=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViQFk45br/CotUovYv0zGG5R6F0EcGwcVFWMmI1dPeKjdEitVrwW3YaWiavOYR/FBkYcAO3V7B7p/wznxTbEfvgA=\ntrusted comment: file:osaurus.fetch-1.0.1.zip\nzK0R5jeKNI+M1ykhfQCZhDnVHs7iQ61UTACDsBmGBF3awDkhq/TVa7u2fp09S71YBlovwD5UwF2/skZTyC2zBw==\n"
           }
         }
       ]
@@ -77,7 +77,7 @@
           "sha256": "90c3f5220675591690d7227cd66d209dd320240c68f6b3d4945dddc16e8827d7",
           "size": 38450,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwGP5TB5rP7Ze7Yt2KTSVawg58Y/PCdQPRueOAoQd5MzWLTHGHMcrm+VRNDfu8ummaLyMnO6beVx0SBjjvjaWXwk=\ntrusted comment: timestamp:1764090601\tfile:osaurus.fetch-1.0.0.zip\n6IRuLizo4D4DEVl+kRA6tuwozdweiJ4XduFMz+P7HtKZd2OCWA52dw1Psgw4G9UHR6ojDw+NEAd8v/LA70axCQ=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VifTdb1JPO1BDo++9JM3yWYXL+SfjmElvzdDxQqzLI0R17k3+YcsiP1qimFQ7eWeg2ntxFtpxJmdKpQF0Ux1JfQQ=\ntrusted comment: file:osaurus.fetch-1.0.0.zip\nqR65B7a7z6airMA9bQS8yh8wnRvw8LAwHHff98y4rdkwmu5IbjMnnkxpRWwYuVquu7WelAqsS33ZL1k4dRdgBw==\n"
           }
         }
       ]

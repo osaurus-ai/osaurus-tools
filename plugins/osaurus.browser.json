@@ -105,7 +105,7 @@
           "sha256": "888e3599bbc7b6e0264f9e5d798ecb173f3a0340a2c0f034715362992acc0b6a",
           "size": 60168,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwMDAGQN7bWNSWdLeQS2Kd4HluHLJWC4bXY0pJ0MtZqUsg9QlL8415vzjR2022v8Tc14EKAT3MEVhTYnwnDX2TgQ=\ntrusted comment: timestamp:1764090572\tfile:osaurus.browser-1.0.0.zip\n/g/vlpQJdToauY0NamNtWexPD6aI+OG5jCCPAufiXJXvJpRHX7FJz4OQ67+loS6OxlvTuW3GinRFDwMYM7tICg=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViTCsFsQLFs6AMtCn8+PH+guxINDbFit6BKP2WmOCxTa2pQ/jdb8hi+hmxcUEMtQHwn0ju9sNLb9aCHz+jDfEtQk=\ntrusted comment: file:osaurus.browser-1.0.0.zip\nezS3O3UHYWKa938IktNXeNf9E4ugnvSIsVebJxA6P1es0wIrHgP1rwty05rxTWmors5/wZXftB3UU+kMq4uLDQ==\n"
           }
         }
       ]
@@ -121,7 +121,7 @@
           "sha256": "0a76a25dea748924d42bad3f0bccb63d2a72c3dbf2dbe51f048003ec19122c29",
           "size": 60914,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwHlVA3KKYnpfdQKcUtoKoJLNBlyOcYJezSXUMIx6qYOgUzqNA7zlsVoSiv01KJ/UapwlgQZxXkrw/KHziIH4jQY=\ntrusted comment: timestamp:1764505106\tfile:osaurus.browser-1.0.1.zip\ndT5AXi4MR1VQhaH1A4JWkLvnJe1owOMr7SSTq08paPHTzgfakuehUSMB1UHka9JAiReCi4Zj6/i5p2UgUx5IDg=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViecgEG1VCaO+VX35oHvMXlyS+BmSjRthYHHfPr+mczwBPOkFvE3q0lxMJkc+iwps3hBgQ4coElU6p8lHTgJfhQw=\ntrusted comment: file:osaurus.browser-1.0.1.zip\nIeKYvyVuPxWIZjdxV9av1y+hoROXMc2uyeXgv49N9huhQxzAHF/+W8/7WJ3iayIW7+tiFJzvD/mRW+8zGvRuDQ==\n"
           }
         }
       ]
@@ -137,7 +137,7 @@
           "sha256": "848778421c0a12c57a33cba2ebef0e691aa7d943063d40097b1afb4fc7193adf",
           "size": 66161,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwBWXO+Mnyj1WvI+exZpBrDqY9niG0Sx6dyWHhs+xdm2+mxIIAYY5nChnM0a6yxwVSaq5Hlq59/uSCQdmmJ2zNwM=\ntrusted comment: timestamp:1764507393\tfile:osaurus.browser-1.0.2.zip\n4cKKGtQbUHs1Py0jfvvfKCzT4OErz/67XGOLOFkp/WhVOjwhYmrfRYabOgOaubw2RjLe6uVDdJgK44rA+QoTCw=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VibHQsiLR3MQbnXaJOkUjnfIDj39brZa+KY5fsfsTzLQ1Qk5K8hkCZ+ax9px9F5BBl3O6WTS8VQODQnV4C1+IkwQ=\ntrusted comment: file:osaurus.browser-1.0.2.zip\noSil+UrRmakORK+HZITK87yw0xgjb85zK3Ud4BQmJFRT353ZGg5eOuXE8pAyHh7j2rW5/f1qVxATtTy7vA3FAA==\n"
           }
         }
       ]
@@ -153,7 +153,7 @@
           "sha256": "d66addfabd384c6b2d26738c100de4032d74b0ddd8a83429e9cb5487b46a05eb",
           "size": 84678,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwOwodP8mHiM0g3GpLI5GblsOnV0wnCrVVQUFozOqdXCQEFTeS0G2NSxmAgIn2W4DADG17STjjnvrQE7JIwh7OQ4=\ntrusted comment: timestamp:1767309858\tfile:osaurus.browser-1.1.0.zip\n6m4jqd7Xf8m9FUI9a/O3J7gdfiT5hr9+CrH8Zc54UgPzW9lQJCkl3T6t0gSD2X1JHyUBRwW6B5ohYiSwA1vhAw=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VialH42GzRohj9/cBWfiq8J5HRSm1AX4oW5KXkaPSS6svYfyiZnog8L0lfg4LZtZexjufXnoAe7dUCoo/JMq1Tgs=\ntrusted comment: file:osaurus.browser-1.1.0.zip\nXVyGVFAVJ2SSjrzXu8zt3vNOEMCuczni++7aSjfRziBSBjiVNC9gIc1hyfWU9kefJvcvrPnttyHx98FkDDZPAg==\n"
           }
         }
       ]
@@ -170,7 +170,7 @@
           "size": 89187,
           "min_macos": "13.0",
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwCldpLRLhKt/5dtyQbmLqzEhHd9rAPOrT8aaiVjoykk2Br+9KkhWc855yjKeTi4OEYuISvFRnwKQm92AnCKpLwA=\ntrusted comment: timestamp:1769775680\tfile:osaurus.browser-1.1.1-macos-arm64.zip\nBAExAifFvO9/1GcS/PtvaTHIlnvt5K9Gn0Le3s68v7mNyNx6GFDWBzSKFPyBaFprb/AVBxcoypFmlqkt94UDCg=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViezsDvK1F/l79AFHIjsyLMP8a+J2RcsgJxH15Lzt7gSpHpXuba3Cn3leSCjdpZJTPFL0Gh1QGcDh54ybseZypAE=\ntrusted comment: file:osaurus.browser-1.1.1-macos-arm64.zip\n3xfpmtxpe1X2YmDoPOX/mrFFGRBSWENYrWffZbb6z+1Qhg6lMUH0xiNOs9GDe4XKtouWaRcfJQoxcZULTxUIAQ==\n"
           }
         }
       ]
@@ -187,7 +187,7 @@
           "size": 103393,
           "min_macos": "13.0",
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwBMU9Z9pkxNScQ/TxcHou0noOoClSEJ08h8ABlrWRRYjrG/Y4UlYmnmGrb0ULuXdCQXKW1Ypg2gL73mdqgEi4QA=\ntrusted comment: timestamp:1771362232\tfile:osaurus.browser-1.2.0-macos-arm64.zip\nGJxC2wzV6hV3FILUiXrJBObfS86EJHcz0rpozqSr1uzV03fEkdbjVNOjtQQ87uPGWy9EXb7rbZ/yEh9kNyZOAg=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VicfYhY8dVQGSXQ4lQrE9a3cH8fvaSFJRtoLPY1BSrGSwJh5G6LhX3OV5D2+rmlqJ4agODH/4hL27ztIRpaT7QQ4=\ntrusted comment: file:osaurus.browser-1.2.0-macos-arm64.zip\nf/TrtwMyPWlEP78M9o7mI/VGfZxFSnOcA1WvvdeW/RbLcBrY+lvPFCM31C8Mhj9Y5kiBJdNDcBQuwoZrMtWoAA==\n"
           }
         }
       ]
