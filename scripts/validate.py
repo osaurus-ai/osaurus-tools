@@ -92,6 +92,23 @@ def validate_minisign_signature(minisign_obj, context):
     
     return True
 
+#
+# One-time key rotation (2026-04): the org-wide minisign keypair was rotated,
+# but the four plugins built in this repo were left registered against the
+# previous key. This allowlist permits a single rotation PR to update their
+# `public_keys.minisign`. The host (Osaurus) recovers automatically via the
+# TOFU code in PluginInstallManager when it sees the registry key change.
+#
+# REMOVE THIS ALLOWLIST IN A FOLLOW-UP PR IMMEDIATELY AFTER THE ROTATION
+# LANDS, so the immutability check applies to all plugins again.
+KEY_ROTATION_ALLOWLIST = {
+    "osaurus.browser",
+    "osaurus.fetch",
+    "osaurus.search",
+    "osaurus.time",
+}
+
+
 def check_public_key_immutability(filepath, current_public_key):
     """
     Check that public key hasn't changed from base branch.
@@ -132,6 +149,18 @@ def check_public_key_immutability(filepath, current_public_key):
             return True
         
         if current_public_key != base_public_key:
+            plugin_id = os.path.splitext(os.path.basename(filepath))[0]
+            if plugin_id in KEY_ROTATION_ALLOWLIST:
+                print(
+                    f"  WARNING: public key change permitted via KEY_ROTATION_ALLOWLIST for {plugin_id}"
+                )
+                print(f"    Base branch ({base_ref}) key: {base_public_key}")
+                print(f"    Current key: {current_public_key}")
+                print(
+                    "    REMOVE this entry from KEY_ROTATION_ALLOWLIST after the rotation PR merges."
+                )
+                return True
+
             print(f"Error: Public key modification detected!")
             print(f"  Base branch ({base_ref}) key: {base_public_key}")
             print(f"  Current key: {current_public_key}")
