@@ -47,33 +47,17 @@
   },
   "versions": [
     {
-      "version": "1.0.3",
-      "release_date": "2025-12-01",
+      "version": "1.0.0",
+      "release_date": "2025-11-25",
       "artifacts": [
         {
           "os": "macos",
           "arch": "arm64",
-          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-1.0.3/osaurus.time-1.0.3.zip",
-          "sha256": "c73bef2c7fd0c0bdb1ce6f28ec19150fdf763e8c9a2060e953888ffca6e3dd65",
-          "size": 21199,
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-1.0.0/osaurus.time-1.0.0.zip",
+          "sha256": "c05b5355c6ad049914f5b69d57fafe087be721ea914b66203e56a7806bfabd88",
+          "size": 16521,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwBaxf+IUQelbWtgZzc1sox6DL27rW7aFlvnZFGEzknaToirXf99Ofd8keYvvIdtlXIdK2/S0fiwded6gLd6iFwI=\ntrusted comment: timestamp:1764630419\tfile:osaurus.time-1.0.3.zip\ngfBvsRL0PhwXRuOZQlglsi8H7DxMq7lMJWHiQ0p4ZmO/WLH0NgIxgW+Qvy3VjW3+7fUOIu1P5mX9c4uKzf+RCQ=="
-          }
-        }
-      ]
-    },
-    {
-      "version": "1.0.2",
-      "release_date": "2025-11-30",
-      "artifacts": [
-        {
-          "os": "macos",
-          "arch": "arm64",
-          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-1.0.2/osaurus.time-1.0.2.zip",
-          "sha256": "e0f7f6c668e0ff36e1f1278b7983b709b4c3ea7a4e78d6670bbb9003169bc400",
-          "size": 21855,
-          "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwB5qU7BAp12a5DCwKzRtBqsIsQ++GSn3Ffy6reZHuUVMCTmRIPky1IbbX0reY/4pJ4CuqqzxK+aKb4x8LSM3sg4=\ntrusted comment: timestamp:1764507186\tfile:osaurus.time-1.0.2.zip\nvwvLU46qDGrPtnljnIUu0I4/FlXumbhGuLQ1IYFsu4o0lRc00h+BmNT/SYnksGdqWs7PrB+JAQNAMmMBOI/GAw=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwPPLr957s1Ght7JN+zKN9vfYQmxIP4vN2qADiORzMhDC3r0VnHnAgFY29JgyVnrlJoo0n6ZIVClovH95R8dJ3gI=\ntrusted comment: timestamp:1764089800\tfile:osaurus.time-1.0.0.zip\n6BLgjnWzxaU3uzw4kYwp+n7EmgrL0oJdZjyYtmwiac99HlCERJw0JtxpeQjGOFTAxdmSohUwBPGX1wdOy9C6DA=="
           }
         }
       ]
@@ -95,17 +79,50 @@
       ]
     },
     {
-      "version": "1.0.0",
-      "release_date": "2025-11-25",
+      "version": "1.0.2",
+      "release_date": "2025-11-30",
       "artifacts": [
         {
           "os": "macos",
           "arch": "arm64",
-          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-1.0.0/osaurus.time-1.0.0.zip",
-          "sha256": "c05b5355c6ad049914f5b69d57fafe087be721ea914b66203e56a7806bfabd88",
-          "size": 16521,
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-1.0.2/osaurus.time-1.0.2.zip",
+          "sha256": "e0f7f6c668e0ff36e1f1278b7983b709b4c3ea7a4e78d6670bbb9003169bc400",
+          "size": 21855,
           "minisign": {
-            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwPPLr957s1Ght7JN+zKN9vfYQmxIP4vN2qADiORzMhDC3r0VnHnAgFY29JgyVnrlJoo0n6ZIVClovH95R8dJ3gI=\ntrusted comment: timestamp:1764089800\tfile:osaurus.time-1.0.0.zip\n6BLgjnWzxaU3uzw4kYwp+n7EmgrL0oJdZjyYtmwiac99HlCERJw0JtxpeQjGOFTAxdmSohUwBPGX1wdOy9C6DA=="
+            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwB5qU7BAp12a5DCwKzRtBqsIsQ++GSn3Ffy6reZHuUVMCTmRIPky1IbbX0reY/4pJ4CuqqzxK+aKb4x8LSM3sg4=\ntrusted comment: timestamp:1764507186\tfile:osaurus.time-1.0.2.zip\nvwvLU46qDGrPtnljnIUu0I4/FlXumbhGuLQ1IYFsu4o0lRc00h+BmNT/SYnksGdqWs7PrB+JAQNAMmMBOI/GAw=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2025-12-01",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-1.0.3/osaurus.time-1.0.3.zip",
+          "sha256": "c73bef2c7fd0c0bdb1ce6f28ec19150fdf763e8c9a2060e953888ffca6e3dd65",
+          "size": 21199,
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTBNLjKflgtwBaxf+IUQelbWtgZzc1sox6DL27rW7aFlvnZFGEzknaToirXf99Ofd8keYvvIdtlXIdK2/S0fiwded6gLd6iFwI=\ntrusted comment: timestamp:1764630419\tfile:osaurus.time-1.0.3.zip\ngfBvsRL0PhwXRuOZQlglsi8H7DxMq7lMJWHiQ0p4ZmO/WLH0NgIxgW+Qvy3VjW3+7fUOIu1P5mX9c4uKzf+RCQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "release_date": "2026-04-22",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-2.0.0/osaurus.time-2.0.0-macos-arm64.zip",
+          "sha256": "f66bc0096e8464bc81df11cfbd056252fcc9a4dd20492dc5c17dfe62e30e2bcc",
+          "size": 64596,
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VidLkJGnititGlIpKChurA8TRgu62nNZBceWSLMjP8vTQguBYSB8zQLxesIDeohNN/iGJvglbBB3NINvyg8UZGwY=\ntrusted comment: timestamp:1776864130\tfile:osaurus.time-2.0.0-macos-arm64.zip\nLYeQSOhLhALxMawyAhGHZs94MBEU6tcDO4cY3E92/k5d/KwA0NsJOnZNu5JixDdPiE1uWJ3mn5YHExBwEp7QDQ=="
           }
         }
       ]
@@ -115,5 +132,9 @@
     "minisign": "RWTmCafy0+6ViS/ZFdYN+4v3ATECbUamgj4WDgGz7R2/DD1UEHp1eXwt"
   },
   "min_macos": "13.0",
-  "min_osaurus": "0.5.0"
+  "min_osaurus": "0.5.0",
+  "skill": "---\nname: osaurus-time\ndescription: Teaches the agent how to use the time tools — current time, timezone conversion, parsing dates, formatting, date arithmetic.\nmetadata:\n  author: Osaurus\n  version: \"2.0.0\"\n---\n\n# Time\n\nA small, pure-function toolkit for clock and calendar work. No network, no state.\n\n## When to use\n\n- Stamping outputs with the user's current time, in the user's timezone.\n- Converting a timestamp to a different timezone for display.\n- Parsing a date the user mentions in natural form (\"2025-04-21\", \"Mon, 21 Apr 2025 14:00:00 GMT\") to a comparable Unix timestamp.\n- Adding or subtracting durations from a date (\"3 days from now\", \"2 hours before that meeting\").\n- Computing the difference between two dates.\n\n## When NOT to use\n\n- Sleeping/blocking the agent loop — these tools do not block.\n- Recurring schedules — use the host app's automation/Schedules surface.\n- Scheduling reminders — use `osaurus.reminders`.\n\n## Canonical workflow\n\n1. Call `current_time` once at the start of any task that needs \"now\". Pass the user's timezone if you know it; otherwise omit and the system zone is used.\n2. Use `parse_date` to turn user-supplied strings into a Unix timestamp before doing any math.\n3. Use `add_duration` / `diff_dates` for arithmetic.\n4. Use `format_date` only at the end, when you need a human-readable string.\n\n## Output envelope\n\nEvery tool returns:\n\n```json\n{ \"ok\": true,  \"data\": { ... }, \"warnings\": [\"...\"] }\n{ \"ok\": false, \"error\": { \"code\": \"INVALID_ARGS\", \"message\": \"...\", \"hint\": \"...\" } }\n```\n\nAlways check `ok` before reading `data`. Bad timezone IDs and unparseable date strings produce structured errors — don't swallow them.\n\n## Tips\n\n- IANA timezone IDs only (`America/New_York`, not `EST`). Call `list_timezones` if you need to validate one.\n- `relative` format is locale-controlled; pass `locale: \"en_US\"` for stable English output.\n- `add_duration` accepts ISO 8601 durations like `P1DT2H` (1 day, 2 hours) or signed seconds.",
+  "docs": {
+    "changelog": "CHANGELOG.md"
+  }
 }
