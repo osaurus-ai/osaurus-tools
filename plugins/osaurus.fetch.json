@@ -4,9 +4,7 @@
   "description": "HTTP client with SSRF protection, response size limits, and Readability-style HTML extraction.",
   "homepage": "https://github.com/osaurus-ai/osaurus-tools",
   "license": "MIT",
-  "authors": [
-    "Osaurus Team"
-  ],
+  "authors": ["Osaurus Team"],
   "capabilities": {
     "tools": [
       {
