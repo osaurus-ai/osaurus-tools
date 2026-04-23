@@ -216,6 +216,23 @@
           }
         }
       ]
+    },
+    {
+      "version": "2.0.1",
+      "release_date": "2026-04-23",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/browser-2.0.1/osaurus.browser-2.0.1-macos-arm64.zip",
+          "sha256": "0083c93a49ed75b764aead14895ebc5e53ee5c4a5244b368ca284e72a4eb7b94",
+          "size": 200407,
+          "min_macos": "14.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViVdc0jVGBzb2tfGCI9Q+xjwu+WjlI5gU5rIlEGhalMCUOdGJchyVpaANJI6ltis+JKBUYOisj0oozNc7Dm/jJQo=\ntrusted comment: timestamp:1776943964\tfile:osaurus.browser-2.0.1-macos-arm64.zip\nmhR5zlZ4RgiSN0VZRWAD+FwvlqV1964CrsKBdILnJDSlYH7Jlo4r3AGyPLFJU+aKuAvjAu/7vpNiG94FpOIJDA=="
+          }
+        }
+      ]
     }
   ],
   "public_keys": {
