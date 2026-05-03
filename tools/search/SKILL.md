@@ -71,8 +71,7 @@ Success:
       }
     ],
     "count": 10,
-    "next_offset": 10,
-    "attempts": [{"provider": "ddg", "ok": true, "count": 10}]
+    "next_offset": 10
   },
   "warnings": ["Ignored unknown provider 'auto'; used auto-cascade. ..."]
 }

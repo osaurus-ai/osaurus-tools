@@ -976,7 +976,11 @@ private func runFreeCascadeParallel(
 
     let completed = Set(snapshot.map { $0.0 })
     for p in providers where !completed.contains(p) {
-        attempts.append(["provider": p, "ok": false, "error": "timeout"])
+        // Distinguish "the budget elapsed and no provider returned anything yet" from
+        // "another provider returned >= 3 hits so we early-exited before this one
+        // finished". Both look the same here; we lump them under `did_not_complete`
+        // rather than `timeout` to avoid implying the request actually timed out.
+        attempts.append(["provider": p, "ok": false, "error": "did_not_complete"])
     }
     for (provider, result) in snapshot {
         switch result {
@@ -1068,12 +1072,16 @@ func runWebOrNews(_ params: SearchParams) throws -> [String: Any] {
         )
     }
 
+    // Intentionally omit `attempts` from successful responses. Agents only need to know
+    // which backend served them (`provider`); leaking the per-provider `ok:false` /
+    // `error: "..."` entries from the cascade caused tool-call UIs to flag the call as
+    // failed even when 10 results were returned. `attempts` is still emitted on
+    // NO_RESULTS where it's actionable for debugging.
     var out: [String: Any] = [
         "query": params.query,
         "provider": usedProvider ?? "",
         "results": deduped.enumerated().map { $0.element.toDict(rank: $0.offset + 1) },
         "count": deduped.count,
-        "attempts": attempts,
     ]
     if deduped.count == params.max_results {
         out["next_offset"] = params.offset + params.max_results
