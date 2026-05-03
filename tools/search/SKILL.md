@@ -16,7 +16,7 @@ Web search for grounding. Free by default (DuckDuckGo / Brave / Bing scraping, r
 search(query="latest CVEs in nginx")
 ```
 
-That's it. **Do not** pass `provider`, `region`, `site`, `filetype`, or `offset` unless you have a concrete reason to.
+That's it. The plugin picks the best backend for you.
 
 ## When to use
 
@@ -86,7 +86,7 @@ Failure:
   "error": {
     "code": "NO_RESULTS",
     "message": "No results from any backend.",
-    "hint": "Try a broader query, drop site:/filetype:/time_range, or configure a paid API key (e.g. TAVILY_API_KEY) in plugin settings."
+    "hint": "Try a broader query or drop site:/filetype:/time_range. For better recall, configure an API key (e.g. TAVILY_API_KEY) in plugin settings."
   },
   "data": { "attempts": [...], "warnings": [...] }
 }
@@ -97,29 +97,18 @@ Error codes you may see: `INVALID_ARGS`, `NO_RESULTS`, `PROVIDER_UNAVAILABLE`, `
 ## Tips
 
 - **Don't splice operators into the query.** `site:` and `filetype:` translate per-backend; pass them as their own params if you really need them.
-- **Don't pin a provider unless you have to.** Auto-cascade already prefers any configured paid backend (Tavily > Brave API > Serper > Google CSE > Kagi > You.com), then races free scrapers in parallel.
 - **Paginate** with `offset` rather than re-querying for more.
-- Snippets vary in quality across providers. For full text, follow up with `osaurus.fetch.fetch_html` on the top URLs (or just call `search_and_extract`).
+- Snippets vary in quality across backends. For full text, follow up with `osaurus.fetch.fetch_html` on the top URLs (or just call `search_and_extract`).
 
 ## Advanced: better quality with API keys
 
-Configure any of these in the plugin's secrets settings to upgrade from scraping to grounded API search:
+Configure any of these in the plugin's secrets settings to upgrade from scraping to grounded API search. Priority order (the host automatically prefers the highest-priority configured key):
 
-- `TAVILY_API_KEY` — Tavily (best free agent search; 1000 free queries/month)
-- `BRAVE_SEARCH_API_KEY` — Brave Search API
-- `SERPER_API_KEY` — Serper (Google SERP)
-- `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` — Google Custom Search Engine
-- `KAGI_API_KEY` — Kagi
-- `YOU_API_KEY` — You.com
+1. `TAVILY_API_KEY` — Tavily (best free agent search; 1000 free queries/month)
+2. `BRAVE_SEARCH_API_KEY` — Brave Search API
+3. `SERPER_API_KEY` — Serper (Google SERP)
+4. `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` — Google Custom Search Engine
+5. `KAGI_API_KEY` — Kagi
+6. `YOU_API_KEY` — You.com
 
-Once a key is set, the plugin auto-uses it; no code or argument changes required.
-
-## Advanced: pinning a backend
-
-If you really need to pin one (e.g. comparing snippet quality, or sidestepping a flaky scraper):
-
-```text
-search(query="...", provider="ddg")
-```
-
-Valid `provider` values: `tavily`, `brave_api`, `serper`, `google_cse`, `kagi`, `you`, `ddg`, `brave_html`, `bing_html`. Anything else is silently ignored with a `warnings` entry.
+If none are configured, the free DDG / Brave / Bing scrapers race in parallel under a 12s budget. Once a key is set, the plugin auto-uses it; no code or argument changes required.

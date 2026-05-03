@@ -896,6 +896,19 @@ func providerHasSecrets(_ id: String, secrets: [String: String]) -> Bool {
     }
 }
 
+/// Builds the user-visible hint for a `NO_RESULTS` failure. The advice differs depending
+/// on whether any paid API keys are configured, since "configure an API key" is useless
+/// advice when the user already has one and it's the one that just failed.
+func noResultsHint(secrets: [String: String]) -> String {
+    let configured = paidProviderPriority.filter { providerHasSecrets($0, secrets: secrets) }
+    if configured.isEmpty {
+        return
+            "Try a broader query or drop site:/filetype:/time_range. For better recall, configure an API key (e.g. TAVILY_API_KEY) in plugin settings."
+    }
+    return
+        "Tried configured backends [\(configured.joined(separator: ", "))] and free fallbacks. Try a broader query or check that your API key is still valid."
+}
+
 /// Drops invalid `provider` and `region` values into nil, recording a warning instead of erroring.
 /// Agents routinely invent values like `"auto"` or `"bing"`; better to silently fall back to
 /// auto-cascade than to fail the whole search.
@@ -999,7 +1012,10 @@ func runWebOrNews(_ params: SearchParams) throws -> [String: Any] {
     }
 
     if let pinned = params.provider {
-        // Single-provider mode. Caller already validated it against `validProviderIds`.
+        // Single-provider mode. Reachable only from direct dylib callers (CLI, tests,
+        // power-user Swift apps): the agent JSON schema no longer exposes `provider`,
+        // so agent-driven calls always fall through to the auto-cascade below.
+        // Caller already validated it against `validProviderIds`.
         let result = runBackend(pinned, params: params)
         switch result {
         case .success(let h):
@@ -1036,9 +1052,10 @@ func runWebOrNews(_ params: SearchParams) throws -> [String: Any] {
     }
 
     if deduped.isEmpty {
+        // `attempts[]` already records every provider that was tried and what it returned,
+        // so we don't need a top-level "provider" key in the failure payload.
         let payload: [String: Any] = [
             "query": params.query,
-            "provider": "",
             "results": [],
             "count": 0,
             "attempts": attempts,
@@ -1046,8 +1063,7 @@ func runWebOrNews(_ params: SearchParams) throws -> [String: Any] {
         throw ToolError(
             code: "NO_RESULTS",
             message: "No results from any backend.",
-            hint:
-                "Try a broader query, drop site:/filetype:/time_range, or configure a paid API key (e.g. TAVILY_API_KEY) in plugin settings.",
+            hint: noResultsHint(secrets: params.secrets),
             data: payload
         )
     }
@@ -1476,14 +1492,14 @@ private var api: osr_plugin_api = {
                   {
                     "id": "search",
                     "description": "Web search. Just pass `query` — the plugin auto-selects the best available backend and races free fallback scrapers in parallel. Returns deduplicated results with title, url, snippet, and (where available) published_date and source_domain.",
-                    "parameters": {"type":"object","properties":{"query":{"type":"string","description":"Plain-language search query. Don't add site:/filetype: operators here; use the dedicated params below instead."},"max_results":{"type":"integer","description":"How many results to return (1-50). Default 10."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"Recency filter: d=day, w=week, m=month, y=year. Omit for any time."},"site":{"type":"string","description":"Advanced — leave unset unless you need to restrict to one domain (e.g. 'arxiv.org')."},"filetype":{"type":"string","description":"Advanced — leave unset unless you specifically need a file type (e.g. 'pdf')."},"offset":{"type":"integer","description":"Advanced — pagination offset for fetching more pages of results. Default 0."},"region":{"type":"string","description":"Advanced — DDG region code in 'xx-yy' form (e.g. 'us-en'). Leave unset for global."},"provider":{"type":"string","enum":["tavily","brave_api","serper","google_cse","kagi","you","ddg","brave_html","bing_html"],"description":"Advanced — leave unset to let the plugin auto-select. Only pin if you explicitly need a specific backend."}},"required":["query"]},
+                    "parameters": {"type":"object","properties":{"query":{"type":"string","description":"Plain-language search query. Don't add site:/filetype: operators here; use the dedicated params below instead."},"max_results":{"type":"integer","description":"How many results to return (1-50). Default 10."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"Recency filter: d=day, w=week, m=month, y=year. Omit for any time."},"site":{"type":"string","description":"Restrict to a domain (e.g. 'arxiv.org'). Leave unset for any domain."},"filetype":{"type":"string","description":"Restrict to a file type (e.g. 'pdf'). Leave unset for any type."},"offset":{"type":"integer","description":"Pagination offset for fetching more results. Default 0."},"region":{"type":"string","description":"DDG region code in 'xx-yy' form (e.g. 'us-en'). Leave unset for global."}},"required":["query"]},
                     "requirements": [],
                     "permission_policy": "allow"
                   },
                   {
                     "id": "search_news",
                     "description": "News-vertical search. Just pass `query`; defaults to last week. Same backend selection as `search`.",
-                    "parameters": {"type":"object","properties":{"query":{"type":"string","description":"Plain-language query. Don't embed site:/filetype: operators."},"max_results":{"type":"integer","description":"1-50. Default 10."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"Recency filter. Default 'w' (last week)."},"site":{"type":"string","description":"Advanced — leave unset unless restricting to one outlet."},"filetype":{"type":"string","description":"Advanced — leave unset."},"offset":{"type":"integer","description":"Advanced — pagination offset. Default 0."},"region":{"type":"string","description":"Advanced — region code 'xx-yy'."},"provider":{"type":"string","enum":["tavily","brave_api","serper","google_cse","kagi","you","ddg","brave_html","bing_html"],"description":"Advanced — leave unset for auto-selection."}},"required":["query"]},
+                    "parameters": {"type":"object","properties":{"query":{"type":"string","description":"Plain-language query. Don't embed site:/filetype: operators."},"max_results":{"type":"integer","description":"1-50. Default 10."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"Recency filter. Default 'w' (last week)."},"site":{"type":"string","description":"Restrict to one outlet (e.g. 'reuters.com')."},"filetype":{"type":"string","description":"Restrict to a file type (e.g. 'pdf')."},"offset":{"type":"integer","description":"Pagination offset. Default 0."},"region":{"type":"string","description":"Region code 'xx-yy'."}},"required":["query"]},
                     "requirements": [],
                     "permission_policy": "allow"
                   },
@@ -1497,7 +1513,7 @@ private var api: osr_plugin_api = {
                   {
                     "id": "search_and_extract",
                     "description": "One-shot: run a search and Readability-extract the top N URLs. Each enriched result includes 'markdown', 'title', 'byline', 'lang', 'word_count', and 'extracted'. Use this when you want a grounded answer without a separate fetch_html step.",
-                    "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"integer","description":"1-20. Default 5."},"extract_count":{"type":"integer","description":"How many of the top results to extract. Default 3."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"Recency filter."},"site":{"type":"string","description":"Advanced — leave unset."},"filetype":{"type":"string","description":"Advanced — leave unset."},"provider":{"type":"string","enum":["tavily","brave_api","serper","google_cse","kagi","you","ddg","brave_html","bing_html"],"description":"Advanced — leave unset."},"timeout":{"type":"number","description":"Per-extract timeout in seconds. Default 25."}},"required":["query"]},
+                    "parameters": {"type":"object","properties":{"query":{"type":"string"},"max_results":{"type":"integer","description":"1-20. Default 5."},"extract_count":{"type":"integer","description":"How many of the top results to extract. Default 3."},"time_range":{"type":"string","enum":["d","w","m","y"],"description":"Recency filter."},"site":{"type":"string","description":"Restrict to a domain."},"filetype":{"type":"string","description":"Restrict to a file type."},"timeout":{"type":"number","description":"Per-extract timeout in seconds. Default 25."}},"required":["query"]},
                     "requirements": [],
                     "permission_policy": "allow"
                   }

@@ -181,6 +181,59 @@ final class HelpersTests: XCTestCase {
         )
     }
 
+    // MARK: WebArgs decoding
+
+    func test_WebArgs_decodesPayloadWithoutProvider() throws {
+        // Agents no longer see `provider` in the JSON schema — they're expected to omit it.
+        // Verify the decoder still accepts the trimmed payload and leaves `provider` nil so
+        // `runWebOrNews` falls through to the auto-cascade.
+        let payload = #"""
+            {"query":"hello","max_results":5,"time_range":"w","site":"","filetype":"","offset":0,"region":""}
+            """#
+        let data = payload.data(using: .utf8)!
+        let args = try JSONDecoder().decode(WebArgs.self, from: data)
+        XCTAssertEqual(args.query, "hello")
+        XCTAssertNil(args.provider)
+    }
+
+    func test_WebArgs_stillAcceptsProviderForDirectCallers() throws {
+        // Removing `provider` from the agent schema doesn't remove it from the runtime.
+        // Direct dylib callers (CLI, Swift apps, regression tests) can still pin a backend.
+        let payload = #"""
+            {"query":"hello","provider":"ddg"}
+            """#
+        let data = payload.data(using: .utf8)!
+        let args = try JSONDecoder().decode(WebArgs.self, from: data)
+        XCTAssertEqual(args.provider, "ddg")
+    }
+
+    // MARK: noResultsHint
+
+    func test_noResultsHint_suggestsConfiguringKeyWhenNoneSet() {
+        let hint = noResultsHint(secrets: [:])
+        XCTAssertTrue(
+            hint.contains("configure an API key"),
+            "Expected hint to suggest configuring an API key, got: \(hint)"
+        )
+        XCTAssertTrue(hint.contains("TAVILY_API_KEY"))
+    }
+
+    func test_noResultsHint_listsConfiguredBackendsWhenSet() {
+        // Power user has Tavily configured; their key was tried and failed.
+        // Hint should NOT redundantly tell them to configure a key — it should name what
+        // was tried so they know where to look.
+        let hint = noResultsHint(secrets: ["TAVILY_API_KEY": "k"])
+        XCTAssertTrue(hint.contains("tavily"), "Expected hint to name configured backend, got: \(hint)")
+        XCTAssertTrue(
+            hint.contains("API key is still valid"),
+            "Expected hint to point at the key, got: \(hint)"
+        )
+        XCTAssertFalse(
+            hint.contains("configure an API key"),
+            "Should not redundantly tell user to configure a key when one is already set: \(hint)"
+        )
+    }
+
     // MARK: runWebOrNews — NO_RESULTS envelope
 
     func test_runWebOrNews_pinnedPaidWithoutKeyThrowsNoResults() {
