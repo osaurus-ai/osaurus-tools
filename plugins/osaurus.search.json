@@ -1,7 +1,7 @@
 {
   "plugin_id": "osaurus.search",
   "name": "Search",
-  "description": "Web search via pluggable backends. Free DDG/Brave/Bing scraping by default; optional Tavily / Brave Search API / Serper / Google CSE / Kagi / You.com when API keys are configured.",
+  "description": "Web search for grounding. Just call search(query=...). Auto-picks the best available backend and returns deduplicated results.",
   "homepage": "https://github.com/osaurus-ai/osaurus-tools",
   "license": "MIT",
   "authors": [
@@ -11,11 +11,11 @@
     "tools": [
       {
         "name": "search",
-        "description": "Web search. Auto-picks the best configured backend (Tavily > Brave API > Serper > Google CSE > Kagi > You.com), falling back to free DDG/Brave/Bing scraping when no API key is present. Returns deduplicated results with title, url, snippet, optional published_date and source_domain."
+        "description": "Web search. Just pass `query` — the plugin auto-selects the best available backend and races free fallback scrapers in parallel. Returns deduplicated results with title, url, snippet, and (where available) published_date and source_domain."
       },
       {
         "name": "search_news",
-        "description": "News-vertical search. Default time_range='w' (last week). Same backend selection as 'search'."
+        "description": "News-vertical search. Just pass `query`; defaults to last week. Same backend selection as `search`."
       },
       {
         "name": "search_images",
@@ -23,13 +23,13 @@
       },
       {
         "name": "search_and_extract",
-        "description": "Run a search and Readability-extract the top N URLs in one call. Each enriched result includes 'markdown', 'title', 'byline', 'lang', 'word_count', and 'extracted'."
+        "description": "One-shot: run a search and Readability-extract the top N URLs. Each enriched result includes 'markdown', 'title', 'byline', 'lang', 'word_count', and 'extracted'. Use this when you want a grounded answer without a separate fetch_html step."
       }
     ],
     "skills": [
       {
         "name": "osaurus-search",
-        "description": "Teaches the agent how to use the web search tools — DuckDuckGo / Brave / Bing scraping by default, optional API backends (Tavily, Brave Search API, Serper, Google CSE, Kagi, You.com)."
+        "description": "How to use the web search tools. Default to `search(query=...)` — the plugin auto-picks the best backend and races free fallbacks in parallel. Only override defaults when you have a specific reason."
       }
     ]
   },

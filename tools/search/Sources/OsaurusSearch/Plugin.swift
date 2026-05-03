@@ -1505,7 +1505,7 @@ private var api: osr_plugin_api = {
                 "skills": [
                   {
                     "name": "osaurus-search",
-                    "description": "Teaches the agent how to use the web search tools. Lead with `search(query=...)`; only override defaults when explicitly needed."
+                    "description": "How to use the web search tools. Default to `search(query=...)` — the plugin auto-picks the best backend and races free fallbacks in parallel. Only override defaults when you have a specific reason."
                   }
                 ]
               }
