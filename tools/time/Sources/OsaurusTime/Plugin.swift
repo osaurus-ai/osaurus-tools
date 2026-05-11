@@ -543,6 +543,7 @@ private var api: osr_plugin_api = {
                 "tools": [
                   {
                     "id": "current_time",
+                    "widget": true,
                     "description": "Get the current date and time, optionally in a specific IANA timezone.",
                     "parameters": {"type":"object","properties":{"timezone":{"type":"string","description":"IANA timezone identifier (e.g. 'America/New_York', 'UTC'). Defaults to system timezone."}},"required":[]},
                     "requirements": [],
@@ -585,6 +586,7 @@ private var api: osr_plugin_api = {
                   },
                   {
                     "id": "list_timezones",
+                    "widget": true,
                     "description": "List all known IANA timezone identifiers, optionally filtered by prefix. Use this to validate user-supplied zones.",
                     "parameters": {"type":"object","properties":{"prefix":{"type":"string","description":"Case-insensitive prefix filter (e.g. 'america/' or 'asia/tok'). Empty returns all."}},"required":[]},
                     "requirements": [],
