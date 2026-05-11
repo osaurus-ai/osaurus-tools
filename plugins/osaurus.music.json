@@ -4,7 +4,9 @@
   "description": "Control Apple Music playback, search your library, and get track information",
   "homepage": "https://github.com/osaurus-ai/osaurus-music",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
@@ -128,6 +130,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-music/releases/download/1.0.4/osaurus.music-1.0.4-macos-arm64.zip",
+          "sha256": "d64a02d8dd0db579e042a27dd02208a2ebe2a49e4b0dc7b5547bc5f06d5b1ac1",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViZVfCYNjnhCikikUGxXwXMeUo0q4Is+vpKglCCP0KZ+bYTxRhsXRCgFxZEHMnHhm2HGf6Z7la51LdQFUSB1a3Qo=\ntrusted comment: timestamp:1778486074\tfile:osaurus.music-1.0.4-macos-arm64.zip\n19Dc/NpYqzWOb1CgaPmc4+hwfKVUFzCsxL6+iMjxXCYmP8pCwGilYT6YCXVxr3iG+k/2Gj0JtSuwM62bkjdHAw=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
