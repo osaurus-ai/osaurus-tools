@@ -4,24 +4,27 @@
   "description": "Interact with macOS Calendar.app - get events, search, create events, and open events",
   "homepage": "https://github.com/osaurus-ai/osaurus-calendar",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "get_events",
-        "description": "Get calendar events in a specified date range"
+        "widget": true,
+        "description": "Get calendar events in a specified date range",
+        "name": "get_events"
       },
       {
-        "name": "search_events",
-        "description": "Search for calendar events that match the search text"
+        "description": "Search for calendar events that match the search text",
+        "name": "search_events"
       },
       {
-        "name": "create_event",
-        "description": "Create a new calendar event"
+        "description": "Create a new calendar event",
+        "name": "create_event"
       },
       {
-        "name": "open_event",
-        "description": "Open a specific calendar event in the Calendar app"
+        "description": "Open a specific calendar event in the Calendar app",
+        "name": "open_event"
       }
     ],
     "skills": null
@@ -78,6 +81,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.9",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-calendar/releases/download/1.0.9/osaurus.calendar-1.0.9-macos-arm64.zip",
+          "sha256": "864e415b755bcb5c19c2e1ec1c6b7cd3a43cc65e88762d938536c7447093d4de",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWSAW6A8VcBx/hnPvK2Q1wDFeARyIzF82wPRkOiMqnqfhxsqRUc+twfcIcgzpIeOGbQAhMbMcwtZhvEVHFaryajdAcMV6ouuxgA=\ntrusted comment: timestamp:1778494979\tfile:osaurus.calendar-1.0.9-macos-arm64.zip\n9SBwifMcPFrEAlSnoL60gziZWRqfJak0jJFWJJkH1pfhfkwIYDpFf0BhtPRA9yQUtFm8X7kvlAE/oN1L94OlDw=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
