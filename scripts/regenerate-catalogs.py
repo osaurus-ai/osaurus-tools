@@ -119,18 +119,22 @@ def _merge_into_catalog(
 
 def _strip_tool_parameters(catalog_tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    The registry catalog historically only carried tool {name, description}.
-    The full parameters schema lives in the dylib manifest. We surface the
-    description in the catalog (so the registry browser shows it) but keep
-    parameter schemas off-disk to avoid maintaining two copies.
+    The catalog keeps the small, public surface of a tool: name + description plus
+    any plugin-author-set optional fields like `widget` and `defaultRender`.
+    Parameter schemas, requirements, and permission policy stay in the dylib
+    manifest so the registry doesn't carry two copies of them.
     """
+    # fields that belong in the dylib manifest but not the catalog
+    DROP_FIELDS = {"id", "parameters", "requirements", "permission_policy"}
     out = []
     for t in catalog_tools:
-        # Manifest uses "id"; catalog uses "name". Translate.
+        # manifest uses "id"; catalog uses "name". translate.
         name = t.get("id") or t.get("name")
         entry: dict[str, Any] = {"name": name}
-        if "description" in t:
-            entry["description"] = t["description"]
+        for key, value in t.items():
+            if key in DROP_FIELDS or key == "name":
+                continue
+            entry[key] = value
         out.append(entry)
     return out
 
