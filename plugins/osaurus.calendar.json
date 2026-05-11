@@ -4,7 +4,9 @@
   "description": "Interact with macOS Calendar.app - get events, search, create events, and open events",
   "homepage": "https://github.com/osaurus-ai/osaurus-calendar",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
@@ -78,6 +80,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.8",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-calendar/releases/download/1.0.8/osaurus.calendar-1.0.8-macos-arm64.zip",
+          "sha256": "07620eff1061dd187b149885a5ce2b6188b60906fc70990331616c1b9fb3bbd0",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWSAW6A8VcBx/qbIVEsDvCVrnzLgPXSD+3lnZe2pf2vW8fSsWTZhGW/Pek3QRfsMQZSlYwPWY6fQF0LtUnKOE2PS1MAym7i5/Qg=\ntrusted comment: timestamp:1778486065\tfile:osaurus.calendar-1.0.8-macos-arm64.zip\nCW+T3mIw8YE4IFpMMzLDVW5d0DgU3xImo48ER3izIpljeLzmbxOPUSlOAj+/A68ZGFafk9hFlPw5ebFqFGXUDg=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
