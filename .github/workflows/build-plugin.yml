@@ -266,7 +266,11 @@ jobs:
           AUTHORS=$(echo "$MANIFEST" | jq -c '.authors // ["${{ github.repository_owner }}"]')
           MIN_MACOS=$(echo "$MANIFEST" | jq -r '.min_macos // "13.0"')
           MIN_OSAURUS=$(echo "$MANIFEST" | jq -r '.min_osaurus // "0.5.0"')
-          TOOLS=$(echo "$MANIFEST" | jq -c '[.capabilities.tools // [] | .[] | {name: .id, description: .description}]')
+          # Preserve plugin-author-set optional fields (widget, defaultRender) when
+          # summarising tools. The projection only renames `id` → `name`; everything else
+          # the plugin declares passes through so the registry catalog the Osaurus app
+          # reads keeps the same shape as `RegistryCapabilities.ToolSummary`.
+          TOOLS=$(echo "$MANIFEST" | jq -c '[.capabilities.tools // [] | .[] | (.name = .id) | del(.id, .parameters, .requirements, .permission_policy)]')
 
           # Read skills metadata (from SKILL.md detection)
           SKILLS="[]"
