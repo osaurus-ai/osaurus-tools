@@ -8,24 +8,25 @@
   "capabilities": {
     "tools": [
       {
-        "name": "resend_send",
-        "description": "Send a new email to start a new conversation. Use this when you need to email someone who is not part of the current thread (e.g. scheduling with a new contact, forwarding information to another person). Creates a new thread. The recipient will be able to reply back."
+        "description": "Send a new email to start a new conversation. Use this when you need to email someone who is not part of the current thread (e.g. scheduling with a new contact, forwarding information to another person). Creates a new thread. The recipient will be able to reply back.",
+        "name": "resend_send"
       },
       {
-        "name": "resend_reply",
-        "description": "Reply to an email in an existing thread. Sends to all thread participants by default (reply-all). Use the optional 'to' parameter to reply to only one specific person. Threading headers are handled automatically so the reply appears in the same conversation in the recipient's inbox. Any files produced during the current task are attached automatically."
+        "description": "Reply to an email in an existing thread. Sends to all thread participants by default (reply-all). Use the optional 'to' parameter to reply to only one specific person. Threading headers are handled automatically so the reply appears in the same conversation in the recipient's inbox. Any files produced during the current task are attached automatically.",
+        "name": "resend_reply"
       },
       {
-        "name": "resend_list_threads",
-        "description": "List email conversation threads. Returns thread summaries (subject, participants, labels, last message preview). Use this to find threads by participant email or label, or to see recent conversations. For full message content, follow up with resend_get_thread."
+        "widget": true,
+        "description": "List email conversation threads. Returns thread summaries (subject, participants, labels, last message preview). Use this to find threads by participant email or label, or to see recent conversations. For full message content, follow up with resend_get_thread.",
+        "name": "resend_list_threads"
       },
       {
-        "name": "resend_get_thread",
-        "description": "Get the full details of a specific email thread, including complete message bodies in chronological order. Use this to read the full conversation, quote a previous message, or gather context before replying."
+        "description": "Get the full details of a specific email thread, including complete message bodies in chronological order. Use this to read the full conversation, quote a previous message, or gather context before replying.",
+        "name": "resend_get_thread"
       },
       {
-        "name": "resend_label_thread",
-        "description": "Add or remove labels on a thread to organize conversations. Labels are freeform strings -- use whatever makes sense for the context (e.g. scheduling, invoices, urgent, follow-up). Threads can be filtered by label using resend_list_threads."
+        "description": "Add or remove labels on a thread to organize conversations. Labels are freeform strings -- use whatever makes sense for the context (e.g. scheduling, invoices, urgent, follow-up). Threads can be filtered by label using resend_list_threads.",
+        "name": "resend_label_thread"
       }
     ],
     "routes": [
@@ -111,6 +112,22 @@
           "min_macos": "15.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViYSxa5QW0biv6NM1jcnSl6YYHNf5RN8EOY0fk+vlFcToxfIw0Du6BrlQsu6hMehIBrrMO7nrXjAJKpiYpmmSqgg=\ntrusted comment: timestamp:1776797017\tfile:osaurus.resend-1.2.0-macos-arm64.zip\nNWjGHqMPMCPmrw1Q7SN8ACHBfkwW+xzUNuj+N0NCTGeRPEgTBlj/794YnxA6x0Eyo4f7bj+X6yu2tb0MCLMmDw=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.2.2",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-resend/releases/download/1.2.2/osaurus.resend-1.2.2-macos-arm64.zip",
+          "sha256": "0c23b25364b23bdbf43b5859d92e8490eafecc82441da299a33b1fb70693a6fd",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViQpLlpMIJh1JTeeE9tPlimgleMmQjQXiMR3DrOizuR6oZ7jKxjNlDfSqD7Bw69aFd6qBFv/Di54NTT/K+BSc2Ao=\ntrusted comment: timestamp:1778495171\tfile:osaurus.resend-1.2.2-macos-arm64.zip\ngJUS636LLWB9Lemiz7NUamJgzn02LPrB/69Qj24DMCOaFOMXnp0+LFmmNQn5U7R2DXYsg6CWTJ/y49dQN5amBw=="
           }
         }
       ]

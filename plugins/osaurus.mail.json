@@ -8,40 +8,43 @@
   "capabilities": {
     "tools": [
       {
-        "name": "list_mailboxes",
-        "description": "List all mailboxes in Apple Mail. Returns a flat list of mailbox_path identifiers (e.g. 'iCloud/INBOX', 'Gmail/[Gmail]/All Mail') that are used as the mailbox_path parameter in other tools. Call this first to discover available mailboxes."
+        "widget": true,
+        "description": "List all mailboxes in Apple Mail. Returns a flat list of mailbox_path identifiers (e.g. 'iCloud/INBOX', 'Gmail/[Gmail]/All Mail') that are used as the mailbox_path parameter in other tools. Call this first to discover available mailboxes.",
+        "name": "list_mailboxes"
       },
       {
-        "name": "list_messages",
-        "description": "List message summaries in a mailbox. Returns subject, sender, date, and flags — but NOT the message body. Use read_message to get the body of a specific message. Supports filtering and pagination via offset. Messages are returned newest-first."
+        "widget": true,
+        "description": "List message summaries in a mailbox. Returns subject, sender, date, and flags — but NOT the message body. Use read_message to get the body of a specific message. Supports filtering and pagination via offset. Messages are returned newest-first.",
+        "name": "list_messages"
       },
       {
-        "name": "read_message",
-        "description": "Read the full content of a specific email message. Use this after list_messages or search_messages to get the message body. Returns plain text body by default."
+        "description": "Read the full content of a specific email message. Use this after list_messages or search_messages to get the message body. Returns plain text body by default.",
+        "name": "read_message"
       },
       {
-        "name": "search_messages",
-        "description": "Search for messages by keyword across subject and sender. Returns the same message summary format as list_messages (no body — use read_message for that). Searches subject line and sender name/address only; body-text search is not supported. Use this instead of list_messages when you need to find messages by subject or sender rather than browsing a specific mailbox."
+        "description": "Search for messages by keyword across subject and sender. Returns the same message summary format as list_messages (no body — use read_message for that). Searches subject line and sender name/address only; body-text search is not supported. Use this instead of list_messages when you need to find messages by subject or sender rather than browsing a specific mailbox.",
+        "name": "search_messages"
       },
       {
-        "name": "compose_message",
-        "description": "Compose a new email. By default opens as a draft for the user to review (send: false). Set send: true to send immediately. Provide either body (plain text) or html_body (rich HTML) or both — if both are provided, html_body is used. At least one of body or html_body is required."
+        "description": "Compose a new email. By default opens as a draft for the user to review (send: false). Set send: true to send immediately. Provide either body (plain text) or html_body (rich HTML) or both — if both are provided, html_body is used. At least one of body or html_body is required.",
+        "name": "compose_message"
       },
       {
-        "name": "reply_to_message",
-        "description": "Reply to an existing email. By default opens as a draft for user review. The original message is quoted automatically by Mail. Provide either body or html_body for the reply content. At least one of body or html_body is required."
+        "description": "Reply to an existing email. By default opens as a draft for user review. The original message is quoted automatically by Mail. Provide either body or html_body for the reply content. At least one of body or html_body is required.",
+        "name": "reply_to_message"
       },
       {
-        "name": "move_message",
-        "description": "Move a message to a different mailbox. Use list_mailboxes to get valid destination mailbox_path values. The destination must be in the same account as the message."
+        "description": "Move a message to a different mailbox. Use list_mailboxes to get valid destination mailbox_path values. The destination must be in the same account as the message.",
+        "name": "move_message"
       },
       {
-        "name": "set_message_status",
-        "description": "Update the read, flagged, or junk status of a message. Only the provided fields are changed — omitted fields are left as-is."
+        "description": "Update the read, flagged, or junk status of a message. Only the provided fields are changed — omitted fields are left as-is.",
+        "name": "set_message_status"
       },
       {
-        "name": "get_thread",
-        "description": "Get all messages in a conversation thread, ordered chronologically (oldest first). Provide any message_id from the thread. Returns summaries by default — set include_bodies to true to include message bodies. Thread detection is based on subject matching and In-Reply-To/References headers (best-effort)."
+        "widget": true,
+        "description": "Get all messages in a conversation thread, ordered chronologically (oldest first). Provide any message_id from the thread. Returns summaries by default — set include_bodies to true to include message bodies. Thread detection is based on subject matching and In-Reply-To/References headers (best-effort).",
+        "name": "get_thread"
       }
     ],
     "skills": [
@@ -87,6 +90,22 @@
           "min_macos": "15.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViSN+2l7qrtiIQR0mwSx4qKLK8+xcssC+eG8206yvyXXo/yt2qzagXG7Tsinfd1Kb2puq2fz5uRvnz42284rY3gw=\ntrusted comment: timestamp:1774665357\tfile:osaurus.mail-1.0.1-macos-arm64.zip\nccNZ42i5V+WByO9GGwFihfZvhVmF7CwdiNplSpVuayYhbRvol5oH9+YqmLXBNvW1Me7YVp+Ag48cZZaaE5TqBw=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-mail/releases/download/1.0.3/osaurus.mail-1.0.3-macos-arm64.zip",
+          "sha256": "ff689065c48c5d44d5cf17764566b0a1b71659f675deceb59450b406dde9d763",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VidqkL/nPSo1cp+sUTtzJp++L1uct0+gBKWfAzLQLFhKX2o0phjMkE0ZoLQ3/6m9H8RUswtBZ/FWW3Vwh5hCoYw0=\ntrusted comment: timestamp:1778495002\tfile:osaurus.mail-1.0.3-macos-arm64.zip\nc/BRXQIqEk+1XFChruQ1+VI5Jwf12Svrh/05eXY+ALq89MaziCxhR6ZluwezHcD41ttOJsB06Q/u+j9qD0aGAA=="
           }
         }
       ]
