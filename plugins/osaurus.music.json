@@ -4,56 +4,61 @@
   "description": "Control Apple Music playback, search your library, and get track information",
   "homepage": "https://github.com/osaurus-ai/osaurus-music",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "open_music",
-        "description": "Open Apple Music app"
+        "description": "Open Apple Music app",
+        "name": "open_music"
       },
       {
-        "name": "play",
-        "description": "Resume or start music playback"
+        "description": "Resume or start music playback",
+        "name": "play"
       },
       {
-        "name": "pause",
-        "description": "Pause music playback"
+        "description": "Pause music playback",
+        "name": "pause"
       },
       {
-        "name": "next_track",
-        "description": "Skip to the next track"
+        "description": "Skip to the next track",
+        "name": "next_track"
       },
       {
-        "name": "previous_track",
-        "description": "Go to the previous track"
+        "description": "Go to the previous track",
+        "name": "previous_track"
       },
       {
-        "name": "set_volume",
-        "description": "Set volume level (0-100)"
+        "description": "Set volume level (0-100)",
+        "name": "set_volume"
       },
       {
-        "name": "get_current_track",
-        "description": "Get currently playing track info"
+        "widget": true,
+        "description": "Get currently playing track info",
+        "name": "get_current_track"
       },
       {
-        "name": "get_library_stats",
-        "description": "Get library statistics (track and playlist counts)"
+        "widget": true,
+        "description": "Get library statistics (track and playlist counts)",
+        "name": "get_library_stats"
       },
       {
-        "name": "list_playlists",
-        "description": "List available playlists in the user's library"
+        "widget": true,
+        "description": "List available playlists in the user's library",
+        "name": "list_playlists"
       },
       {
-        "name": "search_songs",
-        "description": "Search for songs in your library"
+        "description": "Search for songs in your library",
+        "name": "search_songs"
       },
       {
-        "name": "play_song",
-        "description": "Search and play a specific song"
+        "description": "Search and play a specific song",
+        "name": "play_song"
       },
       {
-        "name": "play_playlist",
-        "description": "Play a playlist by name (more reliable than playing individual songs)"
+        "description": "Play a playlist by name (more reliable than playing individual songs)",
+        "name": "play_playlist"
       }
     ]
   },
@@ -128,6 +133,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.5",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-music/releases/download/1.0.5/osaurus.music-1.0.5-macos-arm64.zip",
+          "sha256": "0bbc176c01253e5d48bc4300a51a27af2e1e6a5d111b6d07717338cdb397cd97",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VieY2FgAOJsZlZlcBuLKxUjAe2gOZ+wisAV+hnKcpaWy5K0Lwnz7phlyLlehEHrPtLcDsrYp9k8dix1rIe2ZZlAY=\ntrusted comment: timestamp:1778494991\tfile:osaurus.music-1.0.5-macos-arm64.zip\nQpKKKslldmp9EmeQAQ4ibvMHYR6lriIRNcruDHyVHNZdNkDa6X/yHATHpZXYkF3YW+HvTbqtXZIEiNeXLHVBDw=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
