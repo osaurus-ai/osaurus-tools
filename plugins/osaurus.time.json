@@ -126,6 +126,23 @@
           }
         }
       ]
+    },
+    {
+      "version": "2.0.1",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-2.0.1/osaurus.time-2.0.1-macos-arm64.zip",
+          "sha256": "e6805538f6aa936fda94bb63022a756ac03645d0324e77ff4e4b48a7c01ea9c0",
+          "size": 64625,
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViX7pQIgGky2tBBh+SB0n417WTBy9aM1R9aO31xRloBZ6q8rg3mJAGWuMA/Goru1bmbdmh7BpDwWdAtmz2CrNrAg=\ntrusted comment: timestamp:1778494045\tfile:osaurus.time-2.0.1-macos-arm64.zip\nuSqW1OEGU0nwhIJ9UJbH/GV3v9KvoysrUOIMEP4Tl/iZwlgvcxRE6lbH4xtNKNs23qO/hcyjrt5bX+QTVfqSDw=="
+          }
+        }
+      ]
     }
   ],
   "public_keys": {
