@@ -4,20 +4,23 @@
   "description": "Integration with Apple Notes - list, search, and create notes.",
   "homepage": "https://github.com/osaurus-ai/osaurus-notes",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "list_notes",
-        "description": "Get all notes from Notes app (limited count)"
+        "description": "Find notes by search text",
+        "name": "search_notes"
       },
       {
-        "name": "search_notes",
-        "description": "Find notes by search text"
+        "description": "Create a new note",
+        "name": "create_note"
       },
       {
-        "name": "create_note",
-        "description": "Create a new note"
+        "widget": true,
+        "description": "Get all notes from Notes app (limited count)",
+        "name": "list_notes"
       }
     ]
   },
@@ -57,6 +60,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-notes/releases/download/1.0.3/osaurus.notes-1.0.3-macos-arm64.zip",
+          "sha256": "7664021eb6307295692bc2fd31f1ae88b29f2283cb9b4d87e8d3e7e7f93a0dea",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWRdaSQL/7fTgQvKnIMo/KS7R6EdPPM8PljYcg8S853snIoMJaB/PbODgFaE8JzweftipZ24zo06j0wKnuhElYEuqWJLjG9a5wg=\ntrusted comment: timestamp:1778495148\tfile:osaurus.notes-1.0.3-macos-arm64.zip\npR6EY0Y7jti36W3gvu0v0XfAd7ubj2UR2gCVSCpyhaF0CVenQqdA2Z780zIAu/kvXwhB1ELvDtA24XKywR9DBA=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
