@@ -416,7 +416,9 @@ jobs:
           AUTHORS=$(echo "$MANIFEST" | jq -c '.authors // ["Dinoki Labs"]')
           MIN_MACOS=$(echo "$MANIFEST" | jq -r '.min_macos // "13.0"')
           MIN_OSAURUS=$(echo "$MANIFEST" | jq -r '.min_osaurus // "0.5.0"')
-          TOOLS=$(echo "$MANIFEST" | jq -c '[.capabilities.tools // [] | .[] | {name: .id, description: .description}]')
+          # Preserve plugin-author-set optional fields (widget, defaultRender) when
+          # summarising tools. Mirrors the projection in build-plugin.yml.
+          TOOLS=$(echo "$MANIFEST" | jq -c '[.capabilities.tools // [] | .[] | (.name = .id) | del(.id, .parameters, .requirements, .permission_policy)]')
 
           # Extract v2 routes from manifest (if present)
           ROUTES=$(echo "$MANIFEST" | jq -c '[.capabilities.routes // [] | .[] | {name: (.id // .name), description: (.description // "")}]')
