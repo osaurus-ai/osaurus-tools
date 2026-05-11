@@ -4,20 +4,24 @@
   "description": "Interact with macOS Messages.app - send and read iMessages",
   "homepage": "https://github.com/osaurus-ai/osaurus-messages",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "send_message",
-        "description": "Send an iMessage to a phone number"
+        "description": "Send an iMessage to a phone number",
+        "name": "send_message"
       },
       {
-        "name": "read_messages",
-        "description": "Read message history from a specific contact"
+        "widget": true,
+        "description": "Read message history from a specific contact",
+        "name": "read_messages"
       },
       {
-        "name": "get_unread_messages",
-        "description": "Get all unread messages from all contacts"
+        "widget": true,
+        "description": "Get all unread messages from all contacts",
+        "name": "get_unread_messages"
       }
     ]
   },
@@ -73,6 +77,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.7",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-messages/releases/download/1.0.7/osaurus.messages-1.0.7-macos-arm64.zip",
+          "sha256": "bc084d0ef822b924808a3ff14ab2ce5e0e11d6bfd570e59122b1103e28979013",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTBzaXEFjz7BGl/4vq9Fd8ZK7sdKbllT4V7wSfEnnfXuklFwXBeeFhpfdMLAwqoGrrYt6uVPzd2yip8P31CJtL74I+kg9LPhAg=\ntrusted comment: timestamp:1778495012\tfile:osaurus.messages-1.0.7-macos-arm64.zip\n3MbkjrDGIqz7Og78ufAMISAxuTKge70L2/OXDwneR8hFX55mKQGt6yasFEvvinoSLRp2TjXy28GYtytJZg6GAQ=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
