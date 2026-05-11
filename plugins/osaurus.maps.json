@@ -4,40 +4,44 @@
   "description": "Interact with Apple Maps - search locations, get directions, and manage guides",
   "homepage": "https://github.com/osaurus-ai/osaurus-maps",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "maps_search_locations",
-        "description": "Search for locations on Apple Maps"
+        "description": "Search for locations on Apple Maps",
+        "name": "maps_search_locations"
       },
       {
-        "name": "maps_save_location",
-        "description": "Save a location to favorites in Apple Maps"
+        "description": "Save a location to favorites in Apple Maps",
+        "name": "maps_save_location"
       },
       {
-        "name": "maps_get_directions",
-        "description": "Get directions between two locations"
+        "description": "Get directions between two locations",
+        "name": "maps_get_directions"
       },
       {
-        "name": "maps_drop_pin",
-        "description": "Drop a pin at a specific location"
+        "description": "Drop a pin at a specific location",
+        "name": "maps_drop_pin"
       },
       {
-        "name": "maps_list_guides",
-        "description": "List guides (opens Guides view)"
+        "widget": true,
+        "description": "List guides (opens Guides view)",
+        "name": "maps_list_guides"
       },
       {
-        "name": "maps_add_to_guide",
-        "description": "Add a location to a guide"
+        "description": "Add a location to a guide",
+        "name": "maps_add_to_guide"
       },
       {
-        "name": "maps_create_guide",
-        "description": "Create a new guide"
+        "description": "Create a new guide",
+        "name": "maps_create_guide"
       },
       {
-        "name": "maps_get_current_location",
-        "description": "Get the user current location"
+        "widget": true,
+        "description": "Get the user's current location (Location access required)",
+        "name": "maps_get_current_location"
       }
     ]
   },
@@ -77,6 +81,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-maps/releases/download/1.0.4/osaurus.maps-1.0.4-macos-arm64.zip",
+          "sha256": "7cb27c9c6287797015d093f8d3610c0e74186e4dc03c4765d3002cae36af9513",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWQ7C4tF5waprRE6la4gk+UoMa0l402/ld4Xy3SGUWjC66ivRU44883GX3nsMXKuKEgLAvi+5fYx4ddgh1UMXD5BjgRvRV6EZwA=\ntrusted comment: timestamp:1778494992\tfile:osaurus.maps-1.0.4-macos-arm64.zip\nMixIYOiN7v/Ub/K2PP5VPHvRczgo+VpQ2SFFylC2WfrZICqtc55SvnWdC2H+VpcJMyF1IYfrg1J3S7gP0IJwBQ=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
