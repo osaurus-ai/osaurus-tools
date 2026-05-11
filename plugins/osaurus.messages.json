@@ -4,7 +4,9 @@
   "description": "Interact with macOS Messages.app - send and read iMessages",
   "homepage": "https://github.com/osaurus-ai/osaurus-messages",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
@@ -73,6 +75,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.6",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-messages/releases/download/1.0.6/osaurus.messages-1.0.6-macos-arm64.zip",
+          "sha256": "62d9825a7e4ae33b914c98740aacc717e257db21616a43aabb3fa641969685a5",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTBzaXEFjz7BDNlmPK+TBxmGktRB7WdM5z8LFRorX078Lm33xKWulLPVGgPVOo0bZQqFDxOqbo2isr6H3S0JpCeaNLtobtMBAg=\ntrusted comment: timestamp:1778486117\tfile:osaurus.messages-1.0.6-macos-arm64.zip\n4vHaBKHFpH+yyp5g41fJKxPcxGKHW3i47a3mknaj4b8khabbGBWHocRn4UqlNJzzxR/NBL80yMdMUy3pmWzeCA=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
