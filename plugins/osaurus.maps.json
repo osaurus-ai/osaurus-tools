@@ -4,7 +4,9 @@
   "description": "Interact with Apple Maps - search locations, get directions, and manage guides",
   "homepage": "https://github.com/osaurus-ai/osaurus-maps",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
@@ -37,7 +39,7 @@
       },
       {
         "name": "maps_get_current_location",
-        "description": "Get the user current location"
+        "description": "Get the user's current location (Location access required)"
       }
     ]
   },
@@ -77,6 +79,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-maps/releases/download/1.0.3/osaurus.maps-1.0.3-macos-arm64.zip",
+          "sha256": "5261bd185774b081901b049cc7cea3094d54c098fc218f5d2769caa59ee9a227",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWQ7C4tF5waprePbb3Xg2dNuwPXz8CkrfxTrloJ502datvcJQ5ypn/vjUSVbYOlrY5AN/PSu+qSqecVlKK+9FIcUxxLKRPPh0Ac=\ntrusted comment: timestamp:1778486237\tfile:osaurus.maps-1.0.3-macos-arm64.zip\nwzSlhZJ0CGRWjuAI/pV33tz29CggGhSf+55EGdP7A4uwOpBzpF4egJgcWaIg7tPSYo/UJgEiMeXIvKmr7GabDg=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
