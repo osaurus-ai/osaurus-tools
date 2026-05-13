@@ -10,32 +10,34 @@
   "capabilities": {
     "tools": [
       {
-        "name": "current_time",
-        "description": "Get the current date and time, optionally in a specific IANA timezone."
+        "widget": true,
+        "description": "Get the current date and time, optionally in a specific IANA timezone.",
+        "name": "current_time"
       },
       {
-        "name": "format_date",
-        "description": "Format a Unix timestamp or date string into a chosen format."
+        "description": "Format a Unix timestamp or date string into a chosen format.",
+        "name": "format_date"
       },
       {
-        "name": "parse_date",
-        "description": "Parse a date string into a Unix timestamp + ISO 8601 in the given timezone. Use this before any date arithmetic."
+        "description": "Parse a date string into a Unix timestamp + ISO 8601 in the given timezone. Use this before any date arithmetic.",
+        "name": "parse_date"
       },
       {
-        "name": "convert_timezone",
-        "description": "Re-express an instant in a different timezone. Returns the same wall instant projected into the target zone."
+        "description": "Re-express an instant in a different timezone. Returns the same wall instant projected into the target zone.",
+        "name": "convert_timezone"
       },
       {
-        "name": "add_duration",
-        "description": "Add (or subtract) a duration from a date. Pass either an ISO 8601 duration like 'P1DT2H' or a raw 'seconds' value."
+        "description": "Add (or subtract) a duration from a date. Pass either an ISO 8601 duration like 'P1DT2H' or a raw 'seconds' value.",
+        "name": "add_duration"
       },
       {
-        "name": "diff_dates",
-        "description": "Compute the difference between two dates. Returns total seconds, an ISO 8601 duration, and a human summary."
+        "description": "Compute the difference between two dates. Returns total seconds, an ISO 8601 duration, and a human summary.",
+        "name": "diff_dates"
       },
       {
-        "name": "list_timezones",
-        "description": "List all known IANA timezone identifiers, optionally filtered by prefix. Use this to validate user-supplied zones."
+        "widget": true,
+        "description": "List all known IANA timezone identifiers, optionally filtered by prefix. Use this to validate user-supplied zones.",
+        "name": "list_timezones"
       }
     ],
     "skills": [
@@ -123,6 +125,23 @@
           "min_macos": "13.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViTrYmn8UWhmn9o1EEQzPNGkQ2LtEUxx/3Zpsyl4e0M3fhYQoGdwE9/ICCSrchr0xYpzwUbIeQBSqX9iNVTgEzAk=\ntrusted comment: timestamp:1776865358\tfile:osaurus.time-2.0.0-macos-arm64.zip\nt/ccM0sHT2HTFv3N5CXXkyVdDixG1KivrftWDQexSxHAV/1c38iHvdsNmz5hPwmVxhJvzj2NiGXO58P9DSR/AQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "2.0.5",
+      "release_date": "2026-05-11",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/time-2.0.5/osaurus.time-2.0.5-macos-arm64.zip",
+          "sha256": "4a0def0e8c0d5950efe02f1926bca1fa883dac461e356277f08f9620160b255e",
+          "size": 64620,
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VifXNEN23IBAsOZN1rvjCWmoyutMF1vY7tMWz74RSU/6AexNk9ybnONRwu45yKvOQsqsnqLYTsbDUVcFEhJ1jhwQ=\ntrusted comment: timestamp:1778496125\tfile:osaurus.time-2.0.5-macos-arm64.zip\nAYaeYOsJnLD/N/Yk1E04F5iNpuUL85zBlbncxVBqiVcBQI/AHxVfWTPXdH0Ans2F7WGVaT/MPSXCofrxX7eaBg=="
           }
         }
       ]
