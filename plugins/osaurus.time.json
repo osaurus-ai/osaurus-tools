@@ -11,6 +11,7 @@
     "tools": [
       {
         "name": "current_time",
+        "widget": true,
         "description": "Get the current date and time, optionally in a specific IANA timezone."
       },
       {
@@ -35,6 +36,7 @@
       },
       {
         "name": "list_timezones",
+        "widget": true,
         "description": "List all known IANA timezone identifiers, optionally filtered by prefix. Use this to validate user-supplied zones."
       }
     ],
