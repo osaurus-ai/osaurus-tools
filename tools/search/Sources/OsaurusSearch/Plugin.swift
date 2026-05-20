@@ -282,6 +282,7 @@ private func runBackend(_ provider: String, params: SearchParams) -> Result<[Sea
     case "google_cse": return googleCSESearch(params)
     case "kagi": return kagiSearch(params)
     case "you": return youSearch(params)
+    case "keenable": return keenableSearch(params)
     case "ddg": return ddgScrape(params)
     case "brave_html": return braveScrape(params)
     case "bing_html": return bingScrape(params)
@@ -550,6 +551,54 @@ func mapYouTime(_ tr: String?) -> String? {
     case "y", "year": return "year"
     default: return nil
     }
+}
+
+private func keenableSearch(_ p: SearchParams) -> Result<[SearchHit], BackendError> {
+    guard let key = p.secrets["KEENABLE_API_KEY"] else { return .failure(BackendError("KEENABLE_API_KEY not configured")) }
+    var body: [String: Any] = ["query": augmentedQuery(p)]
+    if let after = mapKeenablePublishedAfter(p.time_range) { body["published_after"] = after }
+    guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+        return .failure(BackendError("Failed to encode Keenable request"))
+    }
+    let res = httpRequest(
+        url: "https://api.keenable.ai/v1/search",
+        method: "POST",
+        headers: ["Content-Type": "application/json", "X-API-Key": key],
+        body: bodyData,
+        timeout: 15
+    )
+    if let err = res.error { return .failure(BackendError("Keenable: \(err)")) }
+    guard res.status == 200, let data = res.data,
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let arr = json["results"] as? [[String: Any]]
+    else { return .failure(BackendError("Keenable returned status \(res.status)")) }
+
+    let hits = arr.prefix(p.max_results).map { item -> SearchHit in
+        SearchHit(
+            title: (item["title"] as? String) ?? "",
+            url: (item["url"] as? String) ?? "",
+            snippet: (item["snippet"] as? String) ?? (item["description"] as? String) ?? "",
+            published_date: (item["published_at"] as? String) ?? (item["acquired_at"] as? String),
+            source_domain: nil,
+            engine: "keenable"
+        )
+    }
+    return .success(Array(hits))
+}
+
+func mapKeenablePublishedAfter(_ tr: String?) -> String? {
+    let days: Int
+    switch tr?.lowercased() {
+    case "d", "day": days = 1
+    case "w", "week": days = 7
+    case "m", "month": days = 30
+    case "y", "year": days = 365
+    default: return nil
+    }
+    let date = Date().addingTimeInterval(-Double(days * 24 * 3600))
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withFullDate]
+    return formatter.string(from: date)
 }
 
 // --- Free scraping backends ---
@@ -880,12 +929,13 @@ private func runImageSearch(_ params: SearchParams) -> Result<[ImageHit], Backen
 let freeProviderIds: [String] = ["ddg", "brave_html", "bing_html"]
 
 /// Paid backends, in descending priority order. Tried sequentially because each call costs quota.
-let paidProviderPriority: [String] = ["tavily", "brave_api", "serper", "google_cse", "kagi", "you"]
+let paidProviderPriority: [String] = ["keenable", "tavily", "brave_api", "serper", "google_cse", "kagi", "you"]
 
 let validProviderIds: Set<String> = Set(freeProviderIds + paidProviderPriority)
 
 func providerHasSecrets(_ id: String, secrets: [String: String]) -> Bool {
     switch id {
+    case "keenable": return secrets["KEENABLE_API_KEY"] != nil
     case "tavily": return secrets["TAVILY_API_KEY"] != nil
     case "brave_api": return secrets["BRAVE_SEARCH_API_KEY"] != nil
     case "serper": return secrets["SERPER_API_KEY"] != nil
@@ -1493,7 +1543,8 @@ private var api: osr_plugin_api = {
                 {"id":"GOOGLE_CSE_API_KEY","label":"Google CSE API key","description":"Google Custom Search Engine API key.","required":false,"url":"https://developers.google.com/custom-search/v1/introduction"},
                 {"id":"GOOGLE_CSE_CX","label":"Google CSE engine ID (cx)","description":"Custom Search Engine ID. Required if GOOGLE_CSE_API_KEY is set.","required":false,"url":"https://programmablesearchengine.google.com/"},
                 {"id":"KAGI_API_KEY","label":"Kagi Search API key","description":"Kagi paid search API.","required":false,"url":"https://help.kagi.com/kagi/api/search.html"},
-                {"id":"YOU_API_KEY","label":"You.com API key","description":"You.com Search API key.","required":false,"url":"https://api.you.com"}
+                {"id":"YOU_API_KEY","label":"You.com API key","description":"You.com Search API key.","required":false,"url":"https://api.you.com"},
+                {"id":"KEENABLE_API_KEY","label":"Keenable API key","description":"Web search purpose-built for AI agents. Get one at https://docs.keenable.ai.","required":false,"url":"https://docs.keenable.ai"}
               ],
               "capabilities": {
                 "tools": [
