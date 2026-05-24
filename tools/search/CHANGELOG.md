@@ -1,5 +1,11 @@
 # Changelog — osaurus.search
 
+## 2.2.0
+
+### Added
+
+- **Keenable backend.** New paid provider `keenable` — web search purpose-built for AI agents. Configure `KEENABLE_API_KEY` from [docs.keenable.ai](https://docs.keenable.ai). Sits at the top of the paid priority cascade.
+
 ## 2.1.0
 
 ### Fixed
