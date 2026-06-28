@@ -1,6 +1,6 @@
 {
   "plugin_id": "osaurus.mail",
-  "name": "Osaurus Mail",
+  "name": "Mail",
   "description": "Read, search, compose, and manage Apple Mail — locally and privately",
   "homepage": "https://github.com/osaurus-ai/osaurus-mail",
   "license": "MIT",

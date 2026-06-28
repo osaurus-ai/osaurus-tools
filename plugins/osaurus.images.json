@@ -1,6 +1,6 @@
 {
   "plugin_id": "osaurus.images",
-  "name": "Osaurus Images",
+  "name": "Images",
   "description": "Image manipulation, conversion, and optimization tools",
   "homepage": "https://github.com/osaurus-ai/osaurus-images",
   "license": "MIT",

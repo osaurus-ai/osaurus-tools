@@ -1658,6 +1658,53 @@ func escapeJSON(_ s: String) -> String {
         .replacingOccurrences(of: "\t", with: "\\t")
 }
 
+/// Normalize a tool result so the Osaurus host can classify failures.
+///
+/// The host treats any output not shaped like `{"ok": false, ...}` as a
+/// SUCCESS. Several browser tools returned bare `{"error": "..."}` objects or
+/// plain `"Error: ..."` strings, which the host therefore reported to the model
+/// as successful calls. This rewrites those into the canonical failure envelope
+/// while leaving real envelopes (`ok: true` / `ok: false`) and ordinary success
+/// payloads untouched.
+func normalizeBrowserResult(_ result: String) -> String {
+    let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Plain "Error: ..." string (not JSON).
+    if !trimmed.hasPrefix("{"),
+        trimmed.lowercased().hasPrefix("error:")
+    {
+        let msg = String(trimmed.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+        return
+            "{\"ok\":false,\"kind\":\"execution_error\",\"message\":\"\(escapeJSON(msg.isEmpty ? trimmed : msg))\",\"retryable\":true}"
+    }
+
+    // JSON object: leave anything that already carries an `ok` flag (canonical
+    // success or failure envelope) untouched; rewrite a bare `{"error": ...}`.
+    guard trimmed.hasPrefix("{"),
+        let data = trimmed.data(using: .utf8),
+        let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+        return result
+    }
+    if obj["ok"] != nil { return result }
+    guard let rawError = obj["error"] else { return result }
+
+    let message: String
+    if let s = rawError as? String {
+        message = s
+    } else if let d = rawError as? [String: Any], let m = d["message"] as? String {
+        message = m
+    } else {
+        message = "Tool error"
+    }
+    let kind =
+        message.localizedCaseInsensitiveContains("invalid argument")
+        || message.localizedCaseInsensitiveContains("required:")
+        ? "invalid_args" : "execution_error"
+    return
+        "{\"ok\":false,\"kind\":\"\(kind)\",\"message\":\"\(escapeJSON(message))\",\"retryable\":true}"
+}
+
 func toJSONString(_ value: Any?) -> String {
     guard let value = value else { return "null" }
 
@@ -3138,55 +3185,61 @@ private var api: osr_plugin_api = {
         let payload = String(cString: payloadPtr)
 
         guard type == "tool" else {
-            return makeCString("{\"error\": \"Unknown capability type\"}")
+            return makeCString(
+                normalizeBrowserResult("{\"error\": \"Unknown capability type\"}"))
         }
 
+        let result: String
         switch id {
         case "browser_navigate":
-            return makeCString(ctx.navigate(args: payload))
+            result = ctx.navigate(args: payload)
         case "browser_snapshot":
-            return makeCString(ctx.snapshot(args: payload))
+            result = ctx.snapshot(args: payload)
         case "browser_click":
-            return makeCString(ctx.click(args: payload))
+            result = ctx.click(args: payload)
         case "browser_type":
-            return makeCString(ctx.type(args: payload))
+            result = ctx.type(args: payload)
         case "browser_select":
-            return makeCString(ctx.select(args: payload))
+            result = ctx.select(args: payload)
         case "browser_hover":
-            return makeCString(ctx.hover(args: payload))
+            result = ctx.hover(args: payload)
         case "browser_scroll":
-            return makeCString(ctx.scroll(args: payload))
+            result = ctx.scroll(args: payload)
         case "browser_press_key":
-            return makeCString(ctx.pressKey(args: payload))
+            result = ctx.pressKey(args: payload)
         case "browser_wait_for":
-            return makeCString(ctx.waitFor(args: payload))
+            result = ctx.waitFor(args: payload)
         case "browser_screenshot":
-            return makeCString(ctx.screenshot(args: payload))
+            result = ctx.screenshot(args: payload)
         case "browser_execute_script":
-            return makeCString(ctx.executeScript(args: payload))
+            result = ctx.executeScript(args: payload)
         case "browser_do":
-            return makeCString(ctx.batchDo(args: payload))
+            result = ctx.batchDo(args: payload)
         case "browser_console_messages":
-            return makeCString(ctx.consoleMessages(args: payload))
+            result = ctx.consoleMessages(args: payload)
         case "browser_network_requests":
-            return makeCString(ctx.networkRequests(args: payload))
+            result = ctx.networkRequests(args: payload)
         case "browser_handle_dialog":
-            return makeCString(ctx.handleDialog(args: payload))
+            result = ctx.handleDialog(args: payload)
         case "browser_set_viewport":
-            return makeCString(ctx.setViewport(args: payload))
+            result = ctx.setViewport(args: payload)
         case "browser_set_user_agent":
-            return makeCString(ctx.setUserAgent(args: payload))
+            result = ctx.setUserAgent(args: payload)
         case "browser_cookies":
-            return makeCString(ctx.cookies(args: payload))
+            result = ctx.cookies(args: payload)
         case "browser_lock":
-            return makeCString(ctx.lock(args: payload))
+            result = ctx.lock(args: payload)
         case "browser_open_login":
-            return makeCString(ctx.openLogin(args: payload))
+            result = ctx.openLogin(args: payload)
         case "browser_reset_session":
-            return makeCString(ctx.resetSession(args: payload))
+            result = ctx.resetSession(args: payload)
         default:
-            return makeCString("{\"error\": \"Unknown tool: \(id)\"}")
+            result = "{\"error\": \"Unknown tool: \(id)\"}"
         }
+        // Single normalization boundary: rewrite bare {"error":...} / "Error:"
+        // results into the canonical failure envelope so the host classifies
+        // them as failures instead of auto-wrapping them as successes.
+        return makeCString(normalizeBrowserResult(result))
     }
 
     return api

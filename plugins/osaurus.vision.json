@@ -1,6 +1,6 @@
 {
   "plugin_id": "osaurus.vision",
-  "name": "Osaurus Vision",
+  "name": "Vision",
   "description": "macOS Vision framework integration for image analysis, text detection, face detection, background removal, and more",
   "homepage": "https://github.com/osaurus-ai/osaurus-vision",
   "license": "MIT",

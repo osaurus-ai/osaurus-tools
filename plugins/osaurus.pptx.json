@@ -1,6 +1,6 @@
 {
   "plugin_id": "osaurus.pptx",
-  "name": "Osaurus PPTX",
+  "name": "PPTX",
   "description": "Create, modify, and export PowerPoint presentations. Supports text, images, shapes, tables, charts, themes, and more.",
   "homepage": "https://github.com/osaurus-ai/osaurus-pptx",
   "license": "MIT",
