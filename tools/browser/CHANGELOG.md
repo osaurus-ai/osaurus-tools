@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- **Tool errors are now reported to the host as failures.** Many tools returned bare `{"error": "..."}` objects or plain `"Error: ..."` strings. The Osaurus host classifies any result not shaped like `{"ok": false, ...}` as a SUCCESS, so those failures were silently surfaced to the model as successful calls. A single normalization boundary in `invoke` now rewrites such results into the canonical failure envelope (`{"ok": false, "kind": ..., "message": ..., "retryable": ...}`) while leaving real envelopes and success payloads untouched.
 - **`browser_reset_session` no longer crashes the host process.** Previously called `WKWebsiteDataStore.remove(forIdentifier:)` immediately after tearing down the `WKWebView`, which races with WebKit's Networking / Storage XPC processes that may still hold the per-identifier store open. On macOS 14+ the internal completion lambda inside `WebsiteDataStore::removeDataStoreWithIdentifierImpl` would dispatch to a NULL `RunLoop` and segfault inside the `com.apple.WebKit.WebsiteDataStoreIO` queue, taking the host (Osaurus) down with it. Reset now wipes every cookie / localStorage / IndexedDB / cache entry in place via the documented `removeData(ofTypes:modifiedSince:)` API and clears the persisted `profile_id` so the next session mints a brand-new isolated UUID. Behaviourally equivalent (next session is logged out and isolated) without the crash.
 
 ## 2.0.0

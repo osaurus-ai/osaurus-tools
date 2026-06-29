@@ -1,6 +1,6 @@
 {
   "plugin_id": "osaurus.xlsx",
-  "name": "Osaurus XLSX",
+  "name": "XLSX",
   "description": "Read, create, and modify Excel spreadsheet (.xlsx) files. Supports reading cell data, creating workbooks with multiple sheets, writing cells, formulas, CSV/TSV conversion, and batch modifications.",
   "homepage": "https://github.com/osaurus-ai/osaurus-xlsx",
   "license": "MIT",
