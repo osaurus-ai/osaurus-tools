@@ -10,17 +10,17 @@
   "capabilities": {
     "tools": [
       {
+        "widget": true,
+        "description": "Get all notes from Notes app (limited count)",
+        "name": "list_notes"
+      },
+      {
         "description": "Find notes by search text",
         "name": "search_notes"
       },
       {
         "description": "Create a new note",
         "name": "create_note"
-      },
-      {
-        "widget": true,
-        "description": "Get all notes from Notes app (limited count)",
-        "name": "list_notes"
       }
     ]
   },
@@ -73,6 +73,22 @@
           "min_macos": "13.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWRdaSQL/7fTgQvKnIMo/KS7R6EdPPM8PljYcg8S853snIoMJaB/PbODgFaE8JzweftipZ24zo06j0wKnuhElYEuqWJLjG9a5wg=\ntrusted comment: timestamp:1778495148\tfile:osaurus.notes-1.0.3-macos-arm64.zip\npR6EY0Y7jti36W3gvu0v0XfAd7ubj2UR2gCVSCpyhaF0CVenQqdA2Z780zIAu/kvXwhB1ELvDtA24XKywR9DBA=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-notes/releases/download/1.0.4/osaurus.notes-1.0.4-macos-arm64.zip",
+          "sha256": "d6bbd34e670571cbbb6af80cf9c912069f78cf0f12af498b08f98a74e9c31cc4",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWRdaSQL/7fTgaZc+Yd6JPZzo+a5atyVeZyFhaxGIBs994Tnjj5SqUNjQJ87x/kPa16lOLZsxM8WYqwaqzMwcOuaDAerVeAF9gQ=\ntrusted comment: timestamp:1782761635\tfile:osaurus.notes-1.0.4-macos-arm64.zip\ntTQAcCglPQ4Rx3LUHspYevGX2YlhSVkr1E8tI0fV+e8WS0bVrV6qalX6jc9f7wr5tFPbAkuKKG/CC3qAJYl3Cw=="
           }
         }
       ]
