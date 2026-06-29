@@ -34,6 +34,22 @@
   },
   "versions": [
     {
+      "version": "1.0.10",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-calendar/releases/download/1.0.10/osaurus.calendar-1.0.10-macos-arm64.zip",
+          "sha256": "9e26ac3ac2944f5cffdb914f65b8aa8a2812b4c9aaff90b48974a05884543230",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWSAW6A8VcBx/vS78qA6HAirzgYdBZ3FFOj1TRUmqPgra0u88Bno1VQtn0UOEeON1Kw3EgbSkzV17a8Fk2Tyx3MJMdvT5IWAlg4=\ntrusted comment: timestamp:1782761651\tfile:osaurus.calendar-1.0.10-macos-arm64.zip\nnDz7t3lwVvgn3S2RVjQ0NLsEWKujLE7wo9nWXkG4vD4HuEu7XXPj7zuxrulQ7/IA6sNboVUYonLD9UNGwfMsBA=="
+          }
+        }
+      ]
+    },
+    {
       "version": "1.0.4",
       "release_date": "2025-12-22",
       "artifacts": [
