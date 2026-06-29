@@ -8,64 +8,64 @@
   "capabilities": {
     "tools": [
       {
-        "name": "detect_text",
-        "description": "Detect and recognize text in an image or PDF using OCR. Returns detected text blocks with bounding boxes and confidence scores."
+        "description": "Detect and recognize text in an image or PDF using OCR. Returns detected text blocks with bounding boxes and confidence scores.",
+        "name": "detect_text"
       },
       {
-        "name": "detect_document",
-        "description": "Detect document boundaries in an image or PDF. Returns corner points for perspective correction."
+        "description": "Detect document boundaries in an image or PDF. Returns corner points for perspective correction.",
+        "name": "detect_document"
       },
       {
-        "name": "detect_barcodes",
-        "description": "Detect and decode barcodes and QR codes in an image or PDF."
+        "description": "Detect and decode barcodes and QR codes in an image or PDF.",
+        "name": "detect_barcodes"
       },
       {
-        "name": "detect_faces",
-        "description": "Detect faces in an image. Optionally includes facial landmarks (eyes, nose, mouth, face contour)."
+        "description": "Detect faces in an image. Optionally includes facial landmarks (eyes, nose, mouth, face contour).",
+        "name": "detect_faces"
       },
       {
-        "name": "detect_rectangles",
-        "description": "Detect rectangular shapes in an image. Useful for finding documents, cards, screens."
+        "description": "Detect rectangular shapes in an image. Useful for finding documents, cards, screens.",
+        "name": "detect_rectangles"
       },
       {
-        "name": "classify_image",
-        "description": "Classify an image using Apple's built-in classifier. Returns labels with confidence scores."
+        "description": "Classify an image using Apple's built-in classifier. Returns labels with confidence scores.",
+        "name": "classify_image"
       },
       {
-        "name": "detect_horizon",
-        "description": "Detect the horizon angle in an image. Useful for auto-rotating tilted photos."
+        "description": "Detect the horizon angle in an image. Useful for auto-rotating tilted photos.",
+        "name": "detect_horizon"
       },
       {
-        "name": "detect_body_pose",
-        "description": "Detect human body poses. Returns 19 joint positions for each detected person."
+        "description": "Detect human body poses. Returns 19 joint positions for each detected person.",
+        "name": "detect_body_pose"
       },
       {
-        "name": "detect_hand_pose",
-        "description": "Detect hand poses. Returns finger joint positions and hand chirality (left/right)."
+        "description": "Detect hand poses. Returns finger joint positions and hand chirality (left/right).",
+        "name": "detect_hand_pose"
       },
       {
-        "name": "detect_animals",
-        "description": "Detect animals (cats and dogs) in an image with labels and bounding boxes."
+        "description": "Detect animals (cats and dogs) in an image with labels and bounding boxes.",
+        "name": "detect_animals"
       },
       {
-        "name": "blur_faces",
-        "description": "Detect and blur all faces in an image for privacy protection."
+        "description": "Detect and blur all faces in an image for privacy protection.",
+        "name": "blur_faces"
       },
       {
-        "name": "auto_crop",
-        "description": "Automatically crop an image to focus on the most salient region."
+        "description": "Automatically crop an image to focus on the most salient region.",
+        "name": "auto_crop"
       },
       {
-        "name": "generate_saliency_map",
-        "description": "Generate a visual saliency heatmap showing areas of interest."
+        "description": "Generate a visual saliency heatmap showing areas of interest.",
+        "name": "generate_saliency_map"
       },
       {
-        "name": "remove_background",
-        "description": "Remove the background from an image, keeping only the foreground. Outputs transparent PNG."
+        "description": "Remove the background from an image, keeping only the foreground. Outputs transparent PNG.",
+        "name": "remove_background"
       },
       {
-        "name": "get_pdf_info",
-        "description": "Get information about a PDF file including page count, dimensions, and encryption status. Use this before processing PDFs to determine how many pages exist."
+        "description": "Get information about a PDF file including page count, dimensions, and encryption status. Use this before processing PDFs to determine how many pages exist.",
+        "name": "get_pdf_info"
       }
     ]
   },
@@ -108,6 +108,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.2",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-vision/releases/download/1.0.2/osaurus.vision-1.0.2-macos-arm64.zip",
+          "sha256": "437dcc678c0892629d63a500cee364e94b93ebd08c14805d5e19a647e4c24132",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViTHzOyqFwk8pIby8ODb4z00tOuH1pSqtZ4haKdzqwhl2tZR9319aLWfscRSEm0K4yUOW0fT0pZWqQq2gojgAygU=\ntrusted comment: timestamp:1782762236\tfile:osaurus.vision-1.0.2-macos-arm64.zip\n60RGGWb3cUAmvmE5PLqOiADhegGrCtFcFCsd4xmFgbYHW17eJhEHEpEHeBH+ZH57ayhNW/6HY5hZ1bZqjVVxAA=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
