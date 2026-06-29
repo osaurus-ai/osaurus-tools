@@ -10,88 +10,88 @@
   "capabilities": {
     "tools": [
       {
-        "name": "browser_navigate",
-        "description": "Navigate to a URL and return a page snapshot with element refs. Use wait_until='networkidle' for SPAs. Use detail to control snapshot verbosity."
+        "description": "Navigate to a URL and return a page snapshot with element refs. Use wait_until='networkidle' for SPAs. Use detail to control snapshot verbosity.",
+        "name": "browser_navigate"
       },
       {
-        "name": "browser_snapshot",
-        "description": "Get a structured snapshot of interactive elements. Usually not needed since action tools return snapshots automatically. Use when you need to re-inspect without acting."
+        "description": "Get a structured snapshot of interactive elements. Usually not needed since action tools return snapshots automatically. Use when you need to re-inspect without acting.",
+        "name": "browser_snapshot"
       },
       {
-        "name": "browser_click",
-        "description": "Click an element and return updated page snapshot."
+        "description": "Click an element and return updated page snapshot.",
+        "name": "browser_click"
       },
       {
-        "name": "browser_type",
-        "description": "Type text into an input element and return updated page snapshot. Use submit=true to press Enter after typing."
+        "description": "Type text into an input element and return updated page snapshot. Use submit=true to press Enter after typing.",
+        "name": "browser_type"
       },
       {
-        "name": "browser_select",
-        "description": "Select option(s) in a dropdown and return updated page snapshot."
+        "description": "Select option(s) in a dropdown and return updated page snapshot.",
+        "name": "browser_select"
       },
       {
-        "name": "browser_hover",
-        "description": "Hover over an element and return updated page snapshot."
+        "description": "Hover over an element and return updated page snapshot.",
+        "name": "browser_hover"
       },
       {
-        "name": "browser_scroll",
-        "description": "Scroll the page and return updated page snapshot."
+        "description": "Scroll the page and return updated page snapshot.",
+        "name": "browser_scroll"
       },
       {
-        "name": "browser_do",
-        "description": "Execute multiple browser actions in sequence and return a single snapshot at the end. Use to batch interactions (type, click, select, etc.) in one call. All refs from the previous snapshot remain valid throughout the batch. If any action fails, execution stops and returns the error with a snapshot."
+        "description": "Execute multiple browser actions in sequence and return a single snapshot at the end. Use to batch interactions (type, click, select, etc.) in one call. All refs from the previous snapshot remain valid throughout the batch. If any action fails, execution stops and returns the error with a snapshot.",
+        "name": "browser_do"
       },
       {
-        "name": "browser_press_key",
-        "description": "Press a keyboard key. Useful for Enter, Escape, Tab, arrow keys, or shortcuts."
+        "description": "Press a keyboard key. Useful for Enter, Escape, Tab, arrow keys, or shortcuts.",
+        "name": "browser_press_key"
       },
       {
-        "name": "browser_wait_for",
-        "description": "Wait for text to appear, disappear, or for a specified time."
+        "description": "Wait for text to appear, disappear, or for a specified time.",
+        "name": "browser_wait_for"
       },
       {
-        "name": "browser_screenshot",
-        "description": "Take a screenshot for visual debugging. Use full_page=true for entire page."
+        "description": "Take a screenshot for visual debugging. Use full_page=true for entire page.",
+        "name": "browser_screenshot"
       },
       {
-        "name": "browser_execute_script",
-        "description": "Execute arbitrary JavaScript. Use as escape hatch for edge cases not covered by other tools."
+        "description": "Execute arbitrary JavaScript. Use as escape hatch for edge cases not covered by other tools.",
+        "name": "browser_execute_script"
       },
       {
-        "name": "browser_console_messages",
-        "description": "Read JavaScript console output captured since the page loaded (or since the last clear). Returns level, message, timestamp (ms epoch), and call-site for each entry."
+        "description": "Read JavaScript console output captured since the page loaded (or since the last clear). Returns level, message, timestamp (ms epoch), and call-site for each entry.",
+        "name": "browser_console_messages"
       },
       {
-        "name": "browser_network_requests",
-        "description": "List fetch/XHR requests made by the page. Includes method, url, status, ok, duration_ms."
+        "description": "List fetch/XHR requests made by the page. Includes method, url, status, ok, duration_ms.",
+        "name": "browser_network_requests"
       },
       {
-        "name": "browser_handle_dialog",
-        "description": "Pre-register a policy for the next JavaScript dialog (alert/confirm/prompt). Call BEFORE the action that triggers the dialog. Default policy is 'accept'."
+        "description": "Pre-register a policy for the next JavaScript dialog (alert/confirm/prompt). Call BEFORE the action that triggers the dialog. Default policy is 'accept'.",
+        "name": "browser_handle_dialog"
       },
       {
-        "name": "browser_set_viewport",
-        "description": "Resize the headless WebKit viewport. Useful for testing responsive layouts."
+        "description": "Resize the headless WebKit viewport. Useful for testing responsive layouts.",
+        "name": "browser_set_viewport"
       },
       {
-        "name": "browser_set_user_agent",
-        "description": "Override the User-Agent header for subsequent navigations. Pass an empty string or omit user_agent to reset to the WebKit default."
+        "description": "Override the User-Agent header for subsequent navigations. Pass an empty string or omit user_agent to reset to the WebKit default.",
+        "name": "browser_set_user_agent"
       },
       {
-        "name": "browser_cookies",
-        "description": "Inspect, set, or clear cookies in the headless WebKit cookie store."
+        "description": "Inspect, set, or clear cookies in the headless WebKit cookie store.",
+        "name": "browser_cookies"
       },
       {
-        "name": "browser_lock",
-        "description": "Cooperative lock for multi-agent safety. Call action='lock' before a critical sequence and action='unlock' after. Other agents are expected to honor this lock; it is advisory, not enforced."
+        "description": "Cooperative lock for multi-agent safety. Call action='lock' before a critical sequence and action='unlock' after. Other agents are expected to honor this lock; it is advisory, not enforced.",
+        "name": "browser_lock"
       },
       {
-        "name": "browser_open_login",
-        "description": "Opens a visible browser window so the user can sign in to a website. Cookies persist per-agent — once signed in, subsequent browser_navigate calls run logged-in. Call this when you receive a LOGIN_REQUIRED error from browser_navigate, or when the user explicitly asks to sign in. NEVER ask the user for passwords or 2FA codes in chat — this tool handles authentication via the helper window."
+        "description": "Opens a visible browser window so the user can sign in to a website. Cookies persist per-agent — once signed in, subsequent browser_navigate calls run logged-in. Call this when you receive a LOGIN_REQUIRED error from browser_navigate, or when the user explicitly asks to sign in. NEVER ask the user for passwords or 2FA codes in chat — this tool handles authentication via the helper window.",
+        "name": "browser_open_login"
       },
       {
-        "name": "browser_reset_session",
-        "description": "Wipes the active agent's persistent browser session — closes the headless browser and removes its on-disk data store (cookies, localStorage, IndexedDB, cache). Next browser_navigate spawns a fresh logged-out profile. Use this when the user asks to 'sign out of everything' or when authentication state is corrupted. Destructive — confirm with the user first."
+        "description": "Wipes the active agent's persistent browser session — closes the headless browser and removes its on-disk data store (cookies, localStorage, IndexedDB, cache). Next browser_navigate spawns a fresh logged-out profile. Use this when the user asks to 'sign out of everything' or when authentication state is corrupted. Destructive — confirm with the user first.",
+        "name": "browser_reset_session"
       }
     ],
     "skills": [
@@ -230,6 +230,23 @@
           "min_macos": "14.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViVdc0jVGBzb2tfGCI9Q+xjwu+WjlI5gU5rIlEGhalMCUOdGJchyVpaANJI6ltis+JKBUYOisj0oozNc7Dm/jJQo=\ntrusted comment: timestamp:1776943964\tfile:osaurus.browser-2.0.1-macos-arm64.zip\nmhR5zlZ4RgiSN0VZRWAD+FwvlqV1964CrsKBdILnJDSlYH7Jlo4r3AGyPLFJU+aKuAvjAu/7vpNiG94FpOIJDA=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "2.0.2",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-tools/releases/download/browser-2.0.2/osaurus.browser-2.0.2-macos-arm64.zip",
+          "sha256": "a62fe18cb5a79851ea43be8022b85b52fd70f2bd83b33efa6033198045f60899",
+          "size": 197158,
+          "min_macos": "14.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViQBJMvLz9ZJvUskXraxbX5ETQcH839P7cfM/4uTnHeM6hvCnyFFf6JjMfsYutVnUqBQob+N0epPFqwGoxq+u3Qs=\ntrusted comment: timestamp:1782761997\tfile:osaurus.browser-2.0.2-macos-arm64.zip\nJCsLCcQFruV1XAtbSEyZsN4BiKg7zNt0nNmjlk5Cm1yftF1UzLjztpwGI3XgXXZp2zWn3/t+ayZ3q+1REas7Ag=="
           }
         }
       ]
