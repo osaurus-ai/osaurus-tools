@@ -97,6 +97,22 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.5",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-maps/releases/download/1.0.5/osaurus.maps-1.0.5-macos-arm64.zip",
+          "sha256": "efc05d6d2865ca2228e65e1a2e669aa86be07418aefed92c79854ed920a3c6e6",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWQ7C4tF5waprYUhy5ask+d1EgiskNnG2UnyX44cM+mqrqjUuDYcqoBvG6Vi4liSP64LQ6UcZZANpp2RmERL7DoCi4r1mVntYgY=\ntrusted comment: timestamp:1782761736\tfile:osaurus.maps-1.0.5-macos-arm64.zip\npPm0DGcTP9l8kremZiQAhiEqBkXlZv3lhF1X/RdSzecDmYY8UQokZetkOCwZsHfQQtg48mlVQtH1qlEHVJIsAQ=="
+          }
+        }
+      ]
     }
   ],
   "docs": {
