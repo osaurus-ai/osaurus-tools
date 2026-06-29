@@ -10,7 +10,7 @@
   "capabilities": {
     "tools": [
       {
-        "description": "Send an iMessage to a phone number",
+        "description": "Send a message to a phone number via iMessage (falls back to SMS when iMessage is unavailable)",
         "name": "send_message"
       },
       {
@@ -90,6 +90,22 @@
           "min_macos": "13.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWTBzaXEFjz7BGl/4vq9Fd8ZK7sdKbllT4V7wSfEnnfXuklFwXBeeFhpfdMLAwqoGrrYt6uVPzd2yip8P31CJtL74I+kg9LPhAg=\ntrusted comment: timestamp:1778495012\tfile:osaurus.messages-1.0.7-macos-arm64.zip\n3MbkjrDGIqz7Og78ufAMISAxuTKge70L2/OXDwneR8hFX55mKQGt6yasFEvvinoSLRp2TjXy28GYtytJZg6GAQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.8",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-messages/releases/download/1.0.8/osaurus.messages-1.0.8-macos-arm64.zip",
+          "sha256": "8f3212cfb3e0ac5f71b3d5097c694ff4d55bed1cf12a058dab0bde4c71558ea5",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTBzaXEFjz7BNjSGcvUW8amhCtQt31I72OGUOvLPd+tx4WbruCLOap2R4AsrnJTJMO0VPcOnLz4jP884DvpsZBCe3NMrxF1jQA=\ntrusted comment: timestamp:1782761615\tfile:osaurus.messages-1.0.8-macos-arm64.zip\nydP25EUb6luUms4zdylyY/0GRJfjfz4zoZujlFh89Mn6IIamR1/1QOzgqv8RBwPt9zLKnnXWoh4aqbqAe9ypAA=="
           }
         }
       ]
