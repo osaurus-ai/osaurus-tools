@@ -8,64 +8,64 @@
   "capabilities": {
     "tools": [
       {
-        "name": "convert_image",
-        "description": "Convert image format (png, jpeg, gif, tiff, bmp, heic, webp)"
+        "description": "Convert image format (png, jpeg, gif, tiff, bmp, heic, webp)",
+        "name": "convert_image"
       },
       {
-        "name": "optimize_image",
-        "description": "Optimize image file size"
+        "description": "Optimize image file size",
+        "name": "optimize_image"
       },
       {
-        "name": "rotate_image",
-        "description": "Rotate image by degrees"
+        "description": "Rotate image by degrees",
+        "name": "rotate_image"
       },
       {
-        "name": "flip_image",
-        "description": "Flip image horizontally or vertically"
+        "description": "Flip image horizontally or vertically",
+        "name": "flip_image"
       },
       {
-        "name": "crop_image",
-        "description": "Crop image to region"
+        "description": "Crop image to region",
+        "name": "crop_image"
       },
       {
-        "name": "resize_image",
-        "description": "Resize image"
+        "description": "Resize image",
+        "name": "resize_image"
       },
       {
-        "name": "get_image_info",
-        "description": "Get image metadata"
+        "description": "Get image metadata",
+        "name": "get_image_info"
       },
       {
-        "name": "strip_metadata",
-        "description": "Remove EXIF metadata"
+        "description": "Remove EXIF metadata",
+        "name": "strip_metadata"
       },
       {
-        "name": "adjust_colors",
-        "description": "Adjust brightness/contrast/saturation"
+        "description": "Adjust brightness/contrast/saturation",
+        "name": "adjust_colors"
       },
       {
-        "name": "apply_filter",
-        "description": "Apply filter (grayscale, sepia, blur, sharpen, invert)"
+        "description": "Apply filter (grayscale, sepia, blur, sharpen, invert)",
+        "name": "apply_filter"
       },
       {
-        "name": "extract_colors",
-        "description": "Extract dominant colors"
+        "description": "Extract dominant colors",
+        "name": "extract_colors"
       },
       {
-        "name": "add_watermark",
-        "description": "Add text or image watermark"
+        "description": "Add text or image watermark",
+        "name": "add_watermark"
       },
       {
-        "name": "composite_images",
-        "description": "Overlay image on another"
+        "description": "Overlay image on another",
+        "name": "composite_images"
       },
       {
-        "name": "add_border",
-        "description": "Add colored border"
+        "description": "Add colored border",
+        "name": "add_border"
       },
       {
-        "name": "round_corners",
-        "description": "Round image corners (outputs PNG)"
+        "description": "Round image corners (outputs PNG)",
+        "name": "round_corners"
       }
     ]
   },
@@ -140,6 +140,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-images/releases/download/1.0.4/osaurus.images-1.0.4-macos-arm64.zip",
+          "sha256": "653575c5a4d3567559aa5f27d3fc9d4a3ff305d0ac8d73aa152b8ddce62be76c",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6VicJEM8Jt2NF+bw1M2YaxMIbingdi7CNT3oDHCEDEuxeDiDEVoFxAwY11oUNo3YPs/4mA9OaVKuWBPQgtHKTAeQI=\ntrusted comment: timestamp:1782761807\tfile:osaurus.images-1.0.4-macos-arm64.zip\nlyCdLWSyqzkraBEp+b0zpPmMMMsNB7dBH+Pzk0ZsE6i6FMnuHW6Pq35FrsSBBVJGrllmlF0/kmWcIpuHr+sQDg=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
