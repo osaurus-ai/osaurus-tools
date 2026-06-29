@@ -8,58 +8,58 @@
   "capabilities": {
     "tools": [
       {
-        "name": "create_presentation",
-        "description": "Create a new PowerPoint presentation. Returns a presentation_id to use with other tools."
+        "description": "Create a new PowerPoint presentation. Returns a presentation_id to use with other tools.",
+        "name": "create_presentation"
       },
       {
-        "name": "add_slide",
-        "description": "Add a new slide to a presentation. The layout parameter is metadata only — you must add elements (text, images, shapes, etc.) manually using add_text, add_image, and other tools."
+        "description": "Add a new slide to a presentation. The layout parameter is metadata only — you must add elements (text, images, shapes, etc.) manually using add_text, add_image, and other tools.",
+        "name": "add_slide"
       },
       {
-        "name": "add_text",
-        "description": "Add a text box to a slide with rich formatting options."
+        "description": "Add a text box to a slide with rich formatting options.",
+        "name": "add_text"
       },
       {
-        "name": "add_image",
-        "description": "Add an image to a slide from a file in the workspace. Supports PNG, JPG, GIF, SVG, BMP, TIFF."
+        "description": "Add an image to a slide from a file in the workspace. Supports PNG, JPG, GIF, SVG, BMP, TIFF.",
+        "name": "add_image"
       },
       {
-        "name": "add_shape",
-        "description": "Add a geometric shape to a slide. 21 shape types available including rectangles, arrows, stars, and more."
+        "description": "Add a geometric shape to a slide. 21 shape types available including rectangles, arrows, stars, and more.",
+        "name": "add_shape"
       },
       {
-        "name": "add_table",
-        "description": "Add a data table to a slide with header styling, alternating row colors, and optional cell merging."
+        "description": "Add a data table to a slide with header styling, alternating row colors, and optional cell merging.",
+        "name": "add_table"
       },
       {
-        "name": "add_chart",
-        "description": "Add a chart to a slide. Supports bar, column, line, pie, and doughnut chart types."
+        "description": "Add a chart to a slide. Supports bar, column, line, pie, and doughnut chart types.",
+        "name": "add_chart"
       },
       {
-        "name": "set_slide_background",
-        "description": "Set a slide's background to a solid color or gradient."
+        "description": "Set a slide's background to a solid color or gradient.",
+        "name": "set_slide_background"
       },
       {
-        "name": "delete_slide",
-        "description": "Remove a slide from a presentation by its number."
+        "description": "Remove a slide from a presentation by its number.",
+        "name": "delete_slide"
       },
       {
-        "name": "read_presentation",
-        "description": "Read an existing PPTX file into memory for viewing or modification. Returns a presentation_id."
+        "description": "Read an existing PPTX file into memory for viewing or modification. Returns a presentation_id.",
+        "name": "read_presentation"
       },
       {
-        "name": "get_presentation_info",
-        "description": "Get metadata and content summary for a presentation. Use include_details=true for full element details."
+        "description": "Get metadata and content summary for a presentation. Use include_details=true for full element details.",
+        "name": "get_presentation_info"
       },
       {
-        "name": "save_presentation",
-        "description": "Save a presentation as a .pptx file to the workspace."
+        "description": "Save a presentation as a .pptx file to the workspace.",
+        "name": "save_presentation"
       }
     ],
     "skills": [
       {
         "name": "osaurus-pptx",
-        "description": "Create PowerPoint (.pptx) presentations from scratch using the Osaurus PPTX plugin. Use when the user asks to build, generate, or create a PowerPoint presentation, slide deck, or .pptx file."
+        "description": "Create PowerPoint (.pptx) presentations from scratch using the PPTX plugin. Use when the user asks to build, generate, or create a PowerPoint presentation, slide deck, or .pptx file."
       }
     ]
   },
@@ -134,6 +134,26 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-pptx/releases/download/1.0.4/osaurus.pptx-1.0.4-macos-arm64.zip",
+          "sha256": "fbbb3a31473a13553a846d773da3c714f2bc455cb4ce536891de8bfb6ef5b564",
+          "min_macos": "15.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWTmCafy0+6ViWeXCNds8tv3pmzvmuxv0d6oxFSZUWbjtuM0cs7NsSrCtSAz/e8Yc9KNzcewXeDXVqUcPWsMGsSMD1HDX1Tx7wU=\ntrusted comment: timestamp:1782762081\tfile:osaurus.pptx-1.0.4-macos-arm64.zip\n5tbV7F97qQW5vgE479P70g2EqxMpcMtcuiCr7RuAk8OmhTEabrDl7JJHZr8Lak+RR9R5nBC/ekd/wQORZP5NBw=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "skill": "---\nname: osaurus-pptx\ndescription: Create PowerPoint (.pptx) presentations from scratch using the PPTX plugin. Use when the user asks to build, generate, or create a PowerPoint presentation, slide deck, or .pptx file.\nmetadata:\n  author: osaurus\n  version: \"0.1.0\"\n---\n\n# PPTX\n\nCreate PowerPoint (.pptx) presentations from scratch. This plugin is creation-only — treat every presentation as a fresh build.\n\n## Workflow\n\nAlways follow this sequence:\n\n1. **Plan first.** Decide the slide count, layout for each slide, and content before calling any tools. Elements cannot be modified after creation, so get it right on the first pass.\n2. **`create_presentation`** — returns a `presentation_id`, slide dimensions, and theme info.\n3. **`add_slide`** — add one slide at a time. Each returns a `slide_number`. Populate the slide with elements immediately before adding the next slide.\n4. **Add elements** — use `add_text`, `add_image`, `add_shape`, `add_table`, `add_chart`, or `set_slide_background` to populate the current slide.\n5. **`save_presentation`** — write the final `.pptx` file. Nothing is written to disk until this step.\n\nNever skip steps. Never add elements before creating a slide. Always save at the end.\n\n## Coordinate System\n\nAll positions and sizes are in **inches**, measured from the top-left corner of the slide.\n\n| Aspect ratio | Width | Height |\n|--------------|-------|--------|\n| 16:9 (default) | 13.33\" | 7.5\" |\n| 4:3 | 10.0\" | 7.5\" |\n\nThe `create_presentation` response includes `width_inches` and `height_inches` — always use these for positioning calculations rather than hardcoded values.\n\n**Safe margins:** Leave at least **0.5\"** on all edges. Usable area for 16:9 is x: 0.5\"–12.83\", y: 0.5\"–7.0\".\n\n## Layout Recipes\n\nReference coordinates for common 16:9 slide layouts. Adjust proportionally for other aspect ratios.\n\n### Title Slide\n\n```\nTitle:    x=1.0  y=2.0  w=11.33 h=1.5  font_size=40 bold=true  alignment=center\nSubtitle: x=1.0  y=4.0  w=11.33 h=1.0  font_size=24            alignment=center\n```\n\n### Section Header\n\n```\nHeading:  x=1.0  y=2.5  w=11.33 h=1.5  font_size=36 bold=true  alignment=center\n```\n\n### Title + Body\n\n```\nTitle:    x=0.75 y=0.5  w=11.83 h=1.0  font_size=32 bold=true\nBody:     x=0.75 y=1.75 w=11.83 h=5.0  font_size=18 bullets=true\n```\n\n### Title + Two Columns\n\n```\nTitle:    x=0.75 y=0.5  w=11.83 h=1.0  font_size=32 bold=true\nLeft:     x=0.75 y=1.75 w=5.67  h=5.0  font_size=16\nRight:    x=6.67 y=1.75 w=5.67  h=5.0  font_size=16\n```\n\n### Title + Image\n\n```\nTitle:    x=0.75 y=0.5  w=11.83 h=1.0  font_size=32 bold=true\nImage:    x=2.5  y=1.75 w=8.33  h=5.0\n```\n\n### Title + Image Left + Text Right\n\n```\nTitle:    x=0.75 y=0.5  w=11.83 h=1.0  font_size=32 bold=true\nImage:    x=0.75 y=1.75 w=5.67  h=5.0\nText:     x=6.67 y=1.75 w=5.67  h=5.0  font_size=16\n```\n\n### Title + Table or Chart\n\n```\nTitle:    x=0.75 y=0.5  w=11.83 h=1.0  font_size=32 bold=true\nTable:    x=0.75 y=1.75 w=11.83 h=5.0\nChart:    x=1.5  y=1.75 w=10.33 h=5.0\n```\n\n### Full-Bleed Image (no title)\n\n```\nImage:    x=0.0  y=0.0  w=13.33 h=7.5\n```\n\n## Themes\n\nChoose a theme at creation time with the `theme` parameter. Let the theme handle styling — avoid hardcoding colors.\n\n| Theme | Style | Best for |\n|-------|-------|----------|\n| `modern` (default) | Blue/orange, Calibri | General purpose |\n| `corporate` | Navy/steel blue, Georgia headings | Business, formal |\n| `creative` | Pink/purple, Avenir Next | Marketing, design |\n| `minimal` | Grayscale, Helvetica Neue | Clean, text-heavy |\n| `dark` | Purple/teal on dark bg, SF Pro | Technical, modern |\n\n**Dark theme warning:** Background color is `121212`. Avoid dark text colors. Set slide backgrounds explicitly if needed.\n\n**Choosing a theme:** Default to `modern` unless the user specifies a preference or the content suggests otherwise (e.g., quarterly business reviews suit `corporate`; pitch decks suit `creative`; developer talks suit `dark`).\n\n## Design Best Practices\n\nFollow these guidelines to produce professional-looking slides:\n\n- **Keep slides focused.** One idea per slide. Aim for 5–7 bullet points max per slide.\n- **Use short text.** Bullet points should be phrases, not sentences. Keep titles under 8 words.\n- **Vary layouts.** Alternate between text-heavy, visual, and data slides to maintain visual interest.\n- **Use font hierarchy.** Titles: 32–40pt bold. Body: 16–18pt. Captions: 12–14pt.\n- **Use charts over tables** when showing trends, comparisons, or proportions. Reserve tables for precise reference data.\n- **End with a closing slide.** Use a section header layout with \"Thank You\", \"Questions?\", or a call to action.\n\n## Tool Reference\n\n### `create_presentation`\n\n- `size` controls aspect ratio, not layout. Default is `\"16:9\"`. Also accepts `\"4:3\"` or custom `\"WxH\"` (e.g., `\"10x7.5\"`).\n- `theme` selects a built-in theme. See the Themes section above.\n\n### `add_slide`\n\n- `layout` is **metadata only**. It does not auto-generate content. Every slide starts blank. You must add all elements manually.\n\n### `add_text`\n\n- Use `\\n` for line breaks and multi-paragraph text.\n- Set `bullets=true` for bullet-pointed lists.\n- Hex colors must omit the `#` prefix: use `\"FF0000\"`, not `\"#FF0000\"`.\n- For centered titles, set `alignment: \"center\"` and `bold: true`.\n\n### `add_image`\n\n- Paths can be relative to the workspace or absolute.\n- Supported formats: PNG, JPG, GIF, SVG, BMP, TIFF.\n- Requires user permission (`ask` policy).\n\n### `add_shape`\n\n- Available types: `rect`, `round_rect`, `ellipse`, `triangle`, `diamond`, `pentagon`, `hexagon`, `octagon`, `star4`, `star5`, `star6`, `right_arrow`, `left_arrow`, `up_arrow`, `down_arrow`, `heart`, `cloud`, `lightning`, `line`, `parallelogram`, `trapezoid`.\n- Shapes can contain text via the `text` parameter — useful for labeled diagrams and flowcharts.\n\n### `add_table`\n\n- `rows` is a 2D array of strings. The first row is the header by default (`has_header: true`).\n- Column widths auto-distribute evenly. Use `column_widths` for custom sizing (array length must match column count).\n\n### `add_chart`\n\n- Types: `bar`, `column`, `line`, `pie`, `doughnut`.\n- Each series needs a `name` and `values` array. Optionally set a `color` per series.\n- `categories` are the x-axis labels.\n\n### `set_slide_background`\n\n- Sets a solid color background for a slide. Useful with the `dark` theme or for accent slides.\n\n### `delete_slide`\n\n- Removes a slide by `slide_number`. Use this to correct mistakes — delete the slide, re-add it, and rebuild its elements.\n\n### `get_presentation_info`\n\n- Returns slide count and metadata. Pass `include_details: true` to see all elements on all slides. Use this to verify the presentation before saving.\n\n### `read_presentation`\n\n- Reads an existing `.pptx` file. Only preserves text elements and slide backgrounds. Images, shapes, tables, and charts are not parsed. Use primarily for inspecting text content.\n\n### `save_presentation`\n\n- Always call this when done. Nothing is persisted until you save.\n- The `.pptx` extension is added automatically if missing.\n- Requires user permission (`ask` policy).\n\n## Limitations and Corrections\n\n**Elements cannot be modified after creation.** There are no tools to update text, reposition elements, or change properties on existing elements. Plan each slide fully before adding elements.\n\n**Slides cannot be reordered.** Slides are ordered by insertion. Plan the sequence in advance. If order matters and it's wrong, rebuild the presentation.\n\n**To fix a slide:** Call `delete_slide` to remove it, `add_slide` to re-add at the same position, rebuild all its elements, then `save_presentation`.\n\n**To inspect what was built:** Call `get_presentation_info` with `include_details: true` to review all slides and elements before saving.\n\n## Example\n\nBuild a 3-slide corporate presentation:\n\n```\n1. create_presentation(title=\"Q4 Report\", theme=\"corporate\")\n   → presentation_id, width=13.33, height=7.5\n\n2. add_slide(presentation_id, layout=\"title\")\n   → slide 1\n3. add_text(presentation_id, slide_number=1, text=\"Q4 2025 Report\",\n     x=1.0, y=2.0, width=11.33, height=1.5,\n     font_size=40, bold=true, alignment=\"center\")\n4. add_text(presentation_id, slide_number=1, text=\"Annual Review\",\n     x=1.0, y=4.0, width=11.33, height=1.0,\n     font_size=24, alignment=\"center\")\n\n5. add_slide(presentation_id, layout=\"title_content\")\n   → slide 2\n6. add_text(presentation_id, slide_number=2, text=\"Key Metrics\",\n     x=0.75, y=0.5, width=11.83, height=1.0,\n     font_size=32, bold=true)\n7. add_chart(presentation_id, slide_number=2, chart_type=\"column\",\n     categories=[\"Oct\", \"Nov\", \"Dec\"],\n     series=[{name: \"Revenue\", values: [120, 135, 150]}],\n     title=\"Monthly Revenue\",\n     x=1.5, y=1.75, width=10.33, height=5.0)\n\n8. add_slide(presentation_id, layout=\"blank\")\n   → slide 3\n9. add_text(presentation_id, slide_number=3, text=\"Thank You\",\n     x=1.0, y=2.5, width=11.33, height=1.5,\n     font_size=36, bold=true, alignment=\"center\")\n\n10. save_presentation(presentation_id, path=\"Q4_Report.pptx\")\n```",
+  "docs": {
+    "readme": "README.md"
+  }
 }
