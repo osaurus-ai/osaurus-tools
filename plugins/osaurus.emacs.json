@@ -4,12 +4,14 @@
   "description": "Execute Emacs Lisp code in a running Emacs instance via emacsclient",
   "homepage": "https://github.com/osaurus-ai/osaurus-emacs",
   "license": "MIT",
-  "authors": ["osaurus-ai"],
+  "authors": [
+    "osaurus-ai"
+  ],
   "capabilities": {
     "tools": [
       {
-        "name": "execute_emacs_lisp_code",
-        "description": "Execute Emacs Lisp code in a running Emacs instance via emacsclient. Requires Emacs server to be running (M-x server-start)."
+        "description": "Execute Emacs Lisp code in a running Emacs instance via emacsclient. Requires Emacs server to be running (M-x server-start).",
+        "name": "execute_emacs_lisp_code"
       }
     ]
   },
@@ -49,6 +51,25 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.0.3",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-emacs/releases/download/1.0.3/osaurus.emacs-1.0.3-macos-arm64.zip",
+          "sha256": "271f8ace71be60346ae0a7a3cee2dcc7d92844a0518848cbed46beca0cfff2af",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWReb8UOobdnaJfbM/ZjNvqKhhrsDKzatYtKqgF2ZsOh0GC9ohWCyhcibVIN2Gp3CZCGcVg/Ot40vLD6pwfrQBF0ohDAqeHEgQ0=\ntrusted comment: timestamp:1782762135\tfile:osaurus.emacs-1.0.3-macos-arm64.zip\nXg1QwsXI5QNi+DY85VkpRSJxWY1wSW6xb0xMhzJpWGGKG46hWALvlMqYU62Scs3l0RV+3TDRlvtT2CGqn9guAg=="
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "docs": {
+    "readme": "README.md"
+  }
 }
