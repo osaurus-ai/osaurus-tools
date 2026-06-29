@@ -10,6 +10,15 @@
   "capabilities": {
     "tools": [
       {
+        "widget": true,
+        "description": "Get reminders, optionally filtering by list, status, or date range.",
+        "name": "get_reminders"
+      },
+      {
+        "description": "Search reminders by title or notes.",
+        "name": "search_reminders"
+      },
+      {
         "description": "Create a new reminder.",
         "name": "create_reminder"
       },
@@ -19,17 +28,8 @@
         "name": "get_lists"
       },
       {
-        "description": "Search reminders by title or notes.",
-        "name": "search_reminders"
-      },
-      {
         "description": "Open the Reminders app, optionally to a specific reminder.",
         "name": "open_reminder"
-      },
-      {
-        "widget": true,
-        "description": "Get reminders, optionally filtering by list, status, or date range.",
-        "name": "get_reminders"
       }
     ]
   },
@@ -82,6 +82,22 @@
           "min_macos": "13.0",
           "minisign": {
             "signature": "untrusted comment: signature from minisign secret key\nRWREzUdfZma6Lp7ztY3Oaj93VaVNGyGoQqhyEMHbeDfTC+Y/QCi19A6t9h5hjBrVh0aK4hXtUJcKWvYLVf5r3izirF2NSBS2lgo=\ntrusted comment: timestamp:1778495184\tfile:osaurus.reminders-1.0.3-macos-arm64.zip\nThsOCGRE1fFzlgxzCQddPVHhZRm6jRlBBDih+dVI15rFtLcKp9cirxunlSOsrre8v2Rs4f3b6BWVaWOyiTZtBQ=="
+          }
+        }
+      ]
+    },
+    {
+      "version": "1.0.4",
+      "release_date": "2026-06-29",
+      "artifacts": [
+        {
+          "os": "macos",
+          "arch": "arm64",
+          "url": "https://github.com/osaurus-ai/osaurus-reminders/releases/download/1.0.4/osaurus.reminders-1.0.4-macos-arm64.zip",
+          "sha256": "f8e0e78417ba938166ef2248178e5d5d05a42b64205a60cf81a51c986468801d",
+          "min_macos": "13.0",
+          "minisign": {
+            "signature": "untrusted comment: signature from minisign secret key\nRWREzUdfZma6LpqZLVLy4vfEaHazCYVW6sUVGSThVc1MjyxBs/4oj9SWpeX+Ssy8cV6K8OdXA1ZM6qzvTr1HgdZiwS7WictqRQk=\ntrusted comment: timestamp:1782761795\tfile:osaurus.reminders-1.0.4-macos-arm64.zip\nPku891ut5lFQoU5p1wQ6Nb/Pbfz8WP/ADOht651LqE6UauQs4/SnDgf9kzf/6wo0SfpJ88Ox6G1bERV7tzFtBQ=="
           }
         }
       ]
