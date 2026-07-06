@@ -373,6 +373,21 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         var visibleOnly: Bool = true
     }
 
+    static func snapshotFilterCondition(for filter: String, nodeVariable: String = "node") -> String {
+        switch filter {
+        case "inputs":
+            return "\(nodeVariable).matches('input, textarea, select, [contenteditable=\"true\"]')"
+        case "buttons":
+            return "\(nodeVariable).matches('button, input[type=\"button\"], input[type=\"submit\"], [role=\"button\"]')"
+        case "links":
+            return "\(nodeVariable).matches('a[href]')"
+        case "forms":
+            return "\(nodeVariable).matches('form, input, textarea, select, button')"
+        default:
+            return "true"
+        }
+    }
+
     func takeSnapshot(options: SnapshotOptions = SnapshotOptions(), detail: DetailLevel = .standard) -> String {
         // Validate state before attempting snapshot
         guard hasNavigated else {
@@ -384,19 +399,7 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         snapshotGeneration += 1
         let currentGeneration = snapshotGeneration
 
-        let filterCondition: String
-        switch options.filter {
-        case "inputs":
-            filterCondition = "el.matches('input, textarea, select, [contenteditable=\"true\"]')"
-        case "buttons":
-            filterCondition = "el.matches('button, input[type=\"button\"], input[type=\"submit\"], [role=\"button\"]')"
-        case "links":
-            filterCondition = "el.matches('a[href]')"
-        case "forms":
-            filterCondition = "el.matches('form, input, textarea, select, button')"
-        default:
-            filterCondition = "true"
-        }
+        let filterCondition = Self.snapshotFilterCondition(for: options.filter)
 
         let visibilityCheck =
             options.visibleOnly
