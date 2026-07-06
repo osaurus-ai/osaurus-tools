@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import OsaurusToolSecurity
 import WebKit
 
 /// Visible login window that lets the user sign in to a site using the same
@@ -132,7 +133,7 @@ final class LoginWindow: NSObject, NSWindowDelegate, WKNavigationDelegate {
         self.window = win
 
         if let url = initialURL {
-            webView.load(URLRequest(url: url))
+            loadAfterPolicyValidation(url)
         } else {
             webView.loadHTMLString(
                 """
@@ -177,10 +178,31 @@ final class LoginWindow: NSObject, NSWindowDelegate, WKNavigationDelegate {
                 + (raw.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? raw)
         }
         guard let url = URL(string: normalized) else { return }
-        webView.load(URLRequest(url: url))
+        loadAfterPolicyValidation(url)
     }
 
     // MARK: - WKNavigationDelegate
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let targetURL = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+
+        switch validateBrowserNavigationURL(targetURL, resolveHostnames: false) {
+        case .success:
+            decisionHandler(.allow)
+        case .failure(let failure):
+            decisionHandler(.cancel)
+            DispatchQueue.main.async { [weak self] in
+                self?.renderBlockedNavigation(failure.message)
+            }
+        }
+    }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         updateNavButtons()
@@ -222,5 +244,42 @@ final class LoginWindow: NSObject, NSWindowDelegate, WKNavigationDelegate {
         let cont = continuation
         continuation = nil
         cont?.resume(returning: result)
+    }
+
+    private func renderBlockedNavigation(_ message: String) {
+        webView.loadHTMLString(
+            """
+            <html><body style="font-family:-apple-system;padding:40px;color:#333;">
+            <h2>Navigation blocked</h2>
+            <p>\(Self.escapeHTML(message))</p>
+            </body></html>
+            """,
+            baseURL: nil
+        )
+    }
+
+    private func loadAfterPolicyValidation(_ url: URL) {
+        let rawURL = url.absoluteString
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let validation = validateBrowserNavigationURL(rawURL, resolveHostnames: true)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch validation {
+                case .success(let decision):
+                    self.webView.load(URLRequest(url: decision.url))
+                case .failure(let failure):
+                    self.renderBlockedNavigation(failure.message)
+                }
+            }
+        }
+    }
+
+    private static func escapeHTML(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
     }
 }

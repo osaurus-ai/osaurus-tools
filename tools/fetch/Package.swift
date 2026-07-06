@@ -7,9 +7,13 @@ let package = Package(
     products: [
         .library(name: "OsaurusFetch", type: .dynamic, targets: ["OsaurusFetch"])
     ],
+    dependencies: [
+        .package(path: "../../Shared/OsaurusToolSecurity")
+    ],
     targets: [
         .target(
             name: "OsaurusFetch",
+            dependencies: ["OsaurusToolSecurity"],
             path: "Sources/OsaurusFetch"
         ),
         .testTarget(

@@ -1,4 +1,5 @@
 import Foundation
+import OsaurusToolSecurity
 
 // MARK: - Response Envelope
 
@@ -81,6 +82,29 @@ struct BackendError: Error, Equatable {
     init(_ message: String) { self.message = message }
 }
 
+struct ExtractionAttempt {
+    let data: [String: Any]?
+    let errorCode: String?
+    let message: String?
+    let warnings: [String]
+
+    static func success(_ data: [String: Any], warnings: [String] = []) -> ExtractionAttempt {
+        ExtractionAttempt(data: data, errorCode: nil, message: nil, warnings: warnings)
+    }
+
+    static func failure(code: String, message: String, warnings: [String] = []) -> ExtractionAttempt {
+        ExtractionAttempt(data: nil, errorCode: code, message: message, warnings: warnings)
+    }
+}
+
+private func redactedURLForOutput(_ url: String) -> String {
+    WebSafetyRedactor.redactURL(url).value
+}
+
+private func redactedTextForOutput(_ text: String) -> String {
+    WebSafetyRedactor.redactText(text).value
+}
+
 // MARK: - HTTP
 
 let userAgents = [
@@ -125,6 +149,159 @@ private func httpRequest(
         return (0, nil, error ?? "request timed out after \(Int(timeout))s")
     }
     return (status, data, error)
+}
+
+private final class ExtractionRequestDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
+    private let redirectPolicy = RedirectPolicy()
+    private let maxBytes: Int
+    private let semaphore = DispatchSemaphore(value: 0)
+    private(set) var data = Data()
+    private(set) var status = 0
+    private(set) var warnings: [String] = []
+    private(set) var finalURL: String?
+    private(set) var error: Error?
+    private(set) var truncated = false
+
+    init(maxBytes: Int) {
+        self.maxBytes = maxBytes
+    }
+
+    func wait(timeout: TimeInterval) {
+        _ = semaphore.wait(timeout: .now() + timeout)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard let currentURL = response.url, let targetURL = request.url else {
+            error = ToolError(code: "INVALID_REDIRECT", message: "Redirect target was missing or invalid.")
+            completionHandler(nil)
+            return
+        }
+        do {
+            let decision = try redirectPolicy.evaluate(
+                from: currentURL,
+                to: targetURL,
+                headers: request.allHTTPHeaderFields ?? [:],
+                options: URLPolicyOptions()
+            )
+            var sanitized = request
+            let originalHeaders = request.allHTTPHeaderFields ?? [:]
+            for name in originalHeaders.keys {
+                sanitized.setValue(nil, forHTTPHeaderField: name)
+            }
+            for (name, value) in decision.headers {
+                sanitized.setValue(value, forHTTPHeaderField: name)
+            }
+            if decision.strippedSensitiveHeaders {
+                warnings.append("sensitive redirect headers were stripped for \(decision.target.redactedURL)")
+            }
+            warnings.append(contentsOf: decision.target.warnings)
+            completionHandler(sanitized)
+        } catch {
+            self.error = error
+            completionHandler(nil)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        if let http = response as? HTTPURLResponse {
+            status = http.statusCode
+            finalURL = http.url?.absoluteString
+        }
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive chunk: Data) {
+        if data.count >= maxBytes {
+            truncated = true
+            dataTask.cancel()
+            return
+        }
+        let remaining = maxBytes - data.count
+        if chunk.count > remaining {
+            data.append(chunk.prefix(remaining))
+            truncated = true
+            dataTask.cancel()
+        } else {
+            data.append(chunk)
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error as NSError?,
+            !(error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled && truncated)
+        {
+            self.error = error
+        }
+        semaphore.signal()
+    }
+}
+
+private func safeExtractionGET(url: String, timeout: TimeInterval, maxBytes: Int = 2 * 1024 * 1024)
+    -> ExtractionAttempt
+{
+    do {
+        let policy = try URLPolicy().validate(url, options: URLPolicyOptions())
+        var request = URLRequest(url: policy.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        request.setValue(userAgents.randomElement() ?? userAgents[0], forHTTPHeaderField: "User-Agent")
+        request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
+        request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+
+        let delegate = ExtractionRequestDelegate(maxBytes: maxBytes)
+        let config = URLSessionConfiguration.ephemeral
+        let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+        let task = session.dataTask(with: request)
+        task.resume()
+        delegate.wait(timeout: timeout + 2)
+        session.invalidateAndCancel()
+
+        if let error = delegate.error {
+            let code: String
+            let message: String
+            if let safety = error as? WebSafetyError {
+                code = safety.code.rawValue
+                message = safety.message
+            } else if let tool = error as? ToolError {
+                code = tool.code
+                message = tool.message
+            } else {
+                code = "EXTRACTION_REQUEST_FAILED"
+                message = error.localizedDescription
+            }
+            return .failure(code: code, message: message, warnings: policy.warnings + delegate.warnings)
+        }
+
+        guard !delegate.data.isEmpty else {
+            return .failure(
+                code: "EXTRACTION_EMPTY_RESPONSE",
+                message: "No extractable response body was returned.",
+                warnings: policy.warnings + delegate.warnings
+            )
+        }
+        return .success(
+            [
+                "data": delegate.data,
+                "status": delegate.status,
+                "final_url": redactedURLForOutput(delegate.finalURL ?? policy.redactedURL),
+                "truncated": delegate.truncated,
+            ],
+            warnings: policy.warnings + delegate.warnings
+        )
+    } catch let error as WebSafetyError {
+        return .failure(code: error.code.rawValue, message: error.message)
+    } catch {
+        return .failure(code: "EXTRACTION_REQUEST_FAILED", message: error.localizedDescription)
+    }
 }
 
 // MARK: - HTML helpers
@@ -1271,18 +1448,34 @@ private struct SearchAndExtractTool {
         for (i, hit) in results.enumerated() {
             var entry = hit
             if i < extractCount, let url = hit["url"] as? String {
-                if let extracted = extractReadability(url: url, timeout: timeout) {
+                let attempt = extractReadability(url: url, timeout: timeout)
+                if let extracted = attempt.data {
                     entry["title"] = extracted["title"] ?? entry["title"] ?? NSNull()
                     entry["markdown"] = extracted["markdown"] ?? ""
                     entry["word_count"] = extracted["word_count"] ?? 0
                     entry["byline"] = extracted["byline"] ?? NSNull()
                     entry["lang"] = extracted["lang"] ?? NSNull()
+                    entry["final_url"] = extracted["final_url"] ?? redactedURLForOutput(url)
+                    entry["truncated"] = extracted["truncated"] ?? false
                     entry["extracted"] = true
                 } else {
                     entry["extracted"] = false
+                    if let code = attempt.errorCode {
+                        entry["extraction_error_code"] = code
+                    }
+                    if let message = attempt.message {
+                        entry["extraction_error"] = message
+                    }
                 }
+                if !attempt.warnings.isEmpty {
+                    entry["extraction_warnings"] = attempt.warnings
+                }
+                entry["url"] = redactedURLForOutput(url)
             } else {
                 entry["extracted"] = false
+                if let url = hit["url"] as? String {
+                    entry["url"] = redactedURLForOutput(url)
+                }
             }
             enriched.append(entry)
         }
@@ -1294,16 +1487,17 @@ private struct SearchAndExtractTool {
 }
 
 // Lightweight Readability extraction used only by search_and_extract.
-private func extractReadability(url: String, timeout: TimeInterval) -> [String: Any]? {
-    let res = httpRequest(
-        url: url,
-        headers: [
-            "Accept": "text/html,application/xhtml+xml"
-        ],
-        timeout: timeout
-    )
-    guard let data = res.data, let html = String(data: data, encoding: .utf8) else {
-        return nil
+func extractReadability(url: String, timeout: TimeInterval) -> ExtractionAttempt {
+    let res = safeExtractionGET(url: url, timeout: timeout)
+    guard let raw = res.data else {
+        return res
+    }
+    guard let data = raw["data"] as? Data, let html = String(data: data, encoding: .utf8) else {
+        return .failure(
+            code: "EXTRACTION_DECODE_FAILED",
+            message: "Extracted response body is not UTF-8 text.",
+            warnings: res.warnings
+        )
     }
 
     let title = firstGroup(in: html, pattern: "<title[^>]*>([\\s\\S]*?)</title>")
@@ -1320,14 +1514,16 @@ private func extractReadability(url: String, timeout: TimeInterval) -> [String: 
             "button",
         ])
     if let main = pickMainContainer(content) { content = main }
-    let markdown = htmlToMarkdown(content)
+    let markdown = redactedTextForOutput(htmlToMarkdown(content))
     let wordCount = markdown.split(whereSeparator: { $0.isWhitespace }).count
 
     var d: [String: Any] = ["markdown": markdown, "word_count": wordCount]
-    if let t = title { d["title"] = t }
-    if let b = byline { d["byline"] = b }
-    if let l = lang { d["lang"] = l }
-    return d
+    d["final_url"] = raw["final_url"] ?? redactedURLForOutput(url)
+    d["truncated"] = raw["truncated"] ?? false
+    if let t = title { d["title"] = redactedTextForOutput(t) }
+    if let b = byline { d["byline"] = redactedTextForOutput(b) }
+    if let l = lang { d["lang"] = redactedTextForOutput(l) }
+    return .success(d, warnings: res.warnings)
 }
 
 func firstGroup(in s: String, pattern: String, group: Int = 1) -> String? {
