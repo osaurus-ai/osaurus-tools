@@ -119,6 +119,29 @@ final class FormatSnapshotTests: XCTestCase {
         XCTAssertTrue(result.contains("href=\"https://example.com/forgot\""))
     }
 
+    func testFormatStandard_redactsCredentialURLsAndText() {
+        let elements: [[String: Any]] = [
+            [
+                "ref": "E1", "type": "link", "text": "token=secret-value",
+                "href": "https://example.com/callback?access_token=secret-value",
+            ],
+            [
+                "ref": "E2", "type": "input", "value": "api_key=secret-value",
+            ],
+        ]
+        let data = makeSampleData(
+            title: "access_token=secret-value",
+            url: "https://example.com/page?token=secret-value",
+            elements: elements
+        )
+        let result = formatSnapshotOutput(data, detail: .standard)
+
+        XCTAssertFalse(result.contains("secret-value"))
+        XCTAssertTrue(result.contains("access_token=REDACTED"))
+        XCTAssertTrue(result.contains("token=REDACTED"))
+        XCTAssertTrue(result.contains("api_key=REDACTED"))
+    }
+
     func testFormatStandard_separatePageHeader() {
         let data = makeSampleData(title: "Test", url: "https://test.com")
         let result = formatSnapshotOutput(data, detail: .standard)

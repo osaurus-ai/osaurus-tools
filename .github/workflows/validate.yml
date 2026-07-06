@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - "plugins/**"
+      - "Shared/**"
       - "scripts/validate.py"
   pull_request:
     branches: [master, main]
@@ -115,6 +116,9 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Test shared web safety core
+        run: swift test --package-path Shared/OsaurusToolSecurity
 
       - name: Build all plugins
         run: |

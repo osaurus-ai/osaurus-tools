@@ -1,6 +1,55 @@
 import AppKit
 import Foundation
+import OsaurusToolSecurity
 import WebKit
+
+struct BrowserURLPolicyFailure: Error {
+    let message: String
+}
+
+func validateBrowserNavigationURL(
+    _ rawURL: String,
+    allowAboutBlank: Bool = true,
+    resolveHostnames: Bool = true
+) -> Result<URLPolicyDecision, BrowserURLPolicyFailure> {
+    do {
+        let decision = try URLPolicy().validate(
+            rawURL,
+            options: URLPolicyOptions(allowAboutBlank: allowAboutBlank, resolveHostnames: resolveHostnames)
+        )
+        return .success(decision)
+    } catch let error as WebSafetyError {
+        return .failure(BrowserURLPolicyFailure(message: error.message))
+    } catch {
+        return .failure(BrowserURLPolicyFailure(message: "Navigation URL could not be validated."))
+    }
+}
+
+func validateBrowserNavigationURL(
+    _ url: URL,
+    allowAboutBlank: Bool = true,
+    resolveHostnames: Bool = true
+) -> Result<URLPolicyDecision, BrowserURLPolicyFailure> {
+    do {
+        let decision = try URLPolicy().validate(
+            url,
+            options: URLPolicyOptions(allowAboutBlank: allowAboutBlank, resolveHostnames: resolveHostnames)
+        )
+        return .success(decision)
+    } catch let error as WebSafetyError {
+        return .failure(BrowserURLPolicyFailure(message: error.message))
+    } catch {
+        return .failure(BrowserURLPolicyFailure(message: "Navigation URL could not be validated."))
+    }
+}
+
+func safeBrowserURLString(_ url: String) -> String {
+    WebSafetyRedactor.redactURL(url).value
+}
+
+func safeBrowserText(_ text: String) -> String {
+    WebSafetyRedactor.redactText(text).value
+}
 
 // MARK: - Detail Level
 
@@ -26,6 +75,7 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
     private var webView: WKWebView!
     private var navigationSemaphore = DispatchSemaphore(value: 0)
     private var navigationError: Error?
+    private var navigationPolicyBlocked = false
     private var isLoaded = false
 
     // Element ref counter - increments with each snapshot
@@ -215,16 +265,21 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
     func navigate(
         to urlString: String, timeout: TimeInterval = 30, waitUntil: WaitUntil = .load
     ) -> (success: Bool, error: String?) {
-        guard let url = URL(string: urlString) else {
-            return (false, "Invalid URL: \(urlString)")
+        let decision: URLPolicyDecision
+        switch validateBrowserNavigationURL(urlString) {
+        case .success(let allowed):
+            decision = allowed
+        case .failure(let failure):
+            return (false, failure.message)
         }
 
         navigationError = nil
+        navigationPolicyBlocked = false
         isLoaded = false
         navigationSemaphore = DispatchSemaphore(value: 0)
 
         DispatchQueue.main.async {
-            let request = URLRequest(url: url, timeoutInterval: timeout)
+            let request = URLRequest(url: decision.url, timeoutInterval: timeout)
             self.webView.load(request)
         }
 
@@ -1344,12 +1399,46 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         navigationSemaphore.signal()
     }
 
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let targetURL = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+
+        let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+        switch validateBrowserNavigationURL(targetURL, resolveHostnames: true) {
+        case .success:
+            decisionHandler(.allow)
+        case .failure(let failure):
+            if isMainFrame {
+                navigationPolicyBlocked = true
+                navigationError = NSError(
+                    domain: "OsaurusBrowserURLPolicy",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: failure.message]
+                )
+                navigationSemaphore.signal()
+            }
+            decisionHandler(.cancel)
+        }
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if navigationPolicyBlocked && navigationError != nil {
+            return
+        }
         navigationError = error
         navigationSemaphore.signal()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if navigationPolicyBlocked && navigationError != nil {
+            return
+        }
         navigationError = error
         navigationSemaphore.signal()
     }
@@ -1415,6 +1504,13 @@ class HeadlessBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         }
         if clear {
             _ = evaluateJavaScript("window.__osaurus_network = [];")
+        }
+        requests = requests.map { entry in
+            var safe = entry
+            if let url = safe["url"] as? String {
+                safe["url"] = safeBrowserURLString(url)
+            }
+            return safe
         }
         return requests
     }
@@ -1728,10 +1824,10 @@ func toJSONString(_ value: Any?) -> String {
 // MARK: - Snapshot Formatting
 
 func formatSnapshotOutput(_ data: [String: Any], detail: DetailLevel) -> String {
-    let title = data["title"] as? String ?? ""
-    let url = data["url"] as? String ?? ""
+    let title = safeBrowserText(data["title"] as? String ?? "")
+    let url = safeBrowserURLString(data["url"] as? String ?? "")
     let hasMore = data["hasMore"] as? Bool ?? false
-    let bodyText = data["bodyText"] as? String ?? ""
+    let bodyText = safeBrowserText(data["bodyText"] as? String ?? "")
 
     switch detail {
     case .none:
@@ -1748,7 +1844,7 @@ func formatSnapshotOutput(_ data: [String: Any], detail: DetailLevel) -> String 
         for element in elements {
             let ref = element["ref"] as? String ?? ""
             let type = element["type"] as? String ?? ""
-            let text = element["text"] as? String ?? ""
+            let text = safeBrowserText(element["text"] as? String ?? "")
             let truncText = text.count > 20 ? String(text.prefix(20)) + "..." : text
 
             if !truncText.isEmpty {
@@ -1776,7 +1872,7 @@ func formatSnapshotOutput(_ data: [String: Any], detail: DetailLevel) -> String 
         for element in elements {
             let ref = element["ref"] as? String ?? ""
             let type = element["type"] as? String ?? ""
-            let text = element["text"] as? String ?? ""
+            let text = safeBrowserText(element["text"] as? String ?? "")
 
             var line = "[\(ref)] \(type)"
 
@@ -1786,16 +1882,16 @@ func formatSnapshotOutput(_ data: [String: Any], detail: DetailLevel) -> String 
 
             var attrs: [String] = []
             if let name = element["name"] as? String, !name.isEmpty {
-                attrs.append("name=\"\(name)\"")
+                attrs.append("name=\"\(safeBrowserText(name))\"")
             }
             if let placeholder = element["placeholder"] as? String, !placeholder.isEmpty {
-                attrs.append("placeholder=\"\(placeholder)\"")
+                attrs.append("placeholder=\"\(safeBrowserText(placeholder))\"")
             }
             if let href = element["href"] as? String, !href.isEmpty, type == "link" {
-                attrs.append("href=\"\(href)\"")
+                attrs.append("href=\"\(safeBrowserURLString(href))\"")
             }
             if let value = element["value"] as? String, !value.isEmpty {
-                attrs.append("value=\"\(value)\"")
+                attrs.append("value=\"\(safeBrowserText(value))\"")
             }
             if element["checked"] as? Bool == true {
                 attrs.append("checked")
@@ -1843,7 +1939,7 @@ func formatSnapshotOutput(_ data: [String: Any], detail: DetailLevel) -> String 
         for element in elements {
             let ref = element["ref"] as? String ?? ""
             let type = element["type"] as? String ?? ""
-            let text = element["text"] as? String ?? ""
+            let text = safeBrowserText(element["text"] as? String ?? "")
 
             var line = "[\(ref)] \(type)"
 
@@ -1853,22 +1949,22 @@ func formatSnapshotOutput(_ data: [String: Any], detail: DetailLevel) -> String 
 
             var attrs: [String] = []
             if let name = element["name"] as? String, !name.isEmpty {
-                attrs.append("name=\"\(name)\"")
+                attrs.append("name=\"\(safeBrowserText(name))\"")
             }
             if let id = element["id"] as? String, !id.isEmpty {
-                attrs.append("id=\"\(id)\"")
+                attrs.append("id=\"\(safeBrowserText(id))\"")
             }
             if let placeholder = element["placeholder"] as? String, !placeholder.isEmpty {
-                attrs.append("placeholder=\"\(placeholder)\"")
+                attrs.append("placeholder=\"\(safeBrowserText(placeholder))\"")
             }
             if let href = element["href"] as? String, !href.isEmpty {
-                attrs.append("href=\"\(href)\"")
+                attrs.append("href=\"\(safeBrowserURLString(href))\"")
             }
             if let value = element["value"] as? String, !value.isEmpty {
-                attrs.append("value=\"\(value)\"")
+                attrs.append("value=\"\(safeBrowserText(value))\"")
             }
             if let ariaLabel = element["ariaLabel"] as? String, !ariaLabel.isEmpty {
-                attrs.append("aria-label=\"\(ariaLabel)\"")
+                attrs.append("aria-label=\"\(safeBrowserText(ariaLabel))\"")
             }
             if element["checked"] as? Bool == true {
                 attrs.append("checked")
@@ -1988,7 +2084,10 @@ class PluginContext {
         }
 
         let detail = parseDetail(input.detail)
-        return autoSnapshot(detail: detail, actionPrefix: "Action: navigate to \(input.url) succeeded")
+        return autoSnapshot(
+            detail: detail,
+            actionPrefix: "Action: navigate to \(safeBrowserURLString(input.url)) succeeded"
+        )
     }
 
     /// Heuristic check for "this navigation landed on a login page". Looks at
@@ -2014,7 +2113,7 @@ class PluginContext {
             "code": "LOGIN_REQUIRED",
             "message": "Navigation landed on a login page (\(host))",
             "domain": host,
-            "url": finalURL,
+            "url": safeBrowserURLString(finalURL),
             "hint":
                 "Call browser_open_login with this URL so the user can sign in, then retry the original navigation. Do not ask the user for credentials in chat — the helper window handles authentication, including 2FA.",
         ]
@@ -2085,7 +2184,7 @@ class PluginContext {
             "timed_out": result.timedOut,
             "profile_id": profileId.uuidString,
         ]
-        if let url = result.finalURL { data["final_url"] = url }
+        if let url = result.finalURL { data["final_url"] = safeBrowserURLString(url) }
         return envelopeOK(data)
     }
 

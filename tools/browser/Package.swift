@@ -7,9 +7,13 @@ let package = Package(
     products: [
         .library(name: "OsaurusBrowser", type: .dynamic, targets: ["OsaurusBrowser"])
     ],
+    dependencies: [
+        .package(path: "../../Shared/OsaurusToolSecurity")
+    ],
     targets: [
         .target(
             name: "OsaurusBrowser",
+            dependencies: ["OsaurusToolSecurity"],
             path: "Sources/OsaurusBrowser",
             linkerSettings: [
                 .linkedFramework("WebKit"),
@@ -18,7 +22,7 @@ let package = Package(
         ),
         .testTarget(
             name: "OsaurusBrowserTests",
-            dependencies: ["OsaurusBrowser"],
+            dependencies: ["OsaurusBrowser", "OsaurusToolSecurity"],
             path: "Tests/OsaurusBrowserTests",
             resources: [.copy("Fixtures")]
         ),

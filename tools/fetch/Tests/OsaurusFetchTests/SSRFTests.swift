@@ -113,4 +113,96 @@ final class SSRFTests: XCTestCase {
         let result = checkSSRF(url: url, allowPrivate: true)
         XCTAssertTrue(result.allowed)
     }
+
+    // MARK: shared policy adoption
+
+    func test_enforceSSRF_blocksUnsafeSchemeEvenWhenPrivateAllowed() {
+        let url = URL(string: "file:///etc/passwd")!
+        XCTAssertThrowsError(try enforceSSRF(url, allowPrivate: true)) { error in
+            guard let toolError = error as? ToolError else {
+                return XCTFail("expected ToolError, got \(error)")
+            }
+            XCTAssertEqual(toolError.code, "UNSAFE_SCHEME")
+        }
+    }
+
+    func test_enforceSSRF_blocksMetadataEvenWhenPrivateAllowed() {
+        let url = URL(string: "http://169.254.169.254/latest/meta-data/")!
+        XCTAssertThrowsError(try enforceSSRF(url, allowPrivate: true)) { error in
+            guard let toolError = error as? ToolError else {
+                return XCTFail("expected ToolError, got \(error)")
+            }
+            XCTAssertEqual(toolError.code, "SSRF_BLOCKED")
+            XCTAssertTrue(toolError.message.contains("metadata"))
+        }
+    }
+
+    func test_enforceSSRF_rejectsURLUserInfo() {
+        let url = URL(string: "https://user:pass@example.com/")!
+        XCTAssertThrowsError(try enforceSSRF(url, allowPrivate: false)) { error in
+            guard let toolError = error as? ToolError else {
+                return XCTFail("expected ToolError, got \(error)")
+            }
+            XCTAssertEqual(toolError.code, "SECRET_IN_URL")
+        }
+    }
+
+    func test_safeHeaders_redactsSensitiveValues() {
+        let redacted = safeHeaders([
+            "Authorization": "Bearer secret-token",
+            "X-Request-ID": "abc",
+            "Cookie": "session=abc",
+        ])
+        XCTAssertEqual(redacted["Authorization"], "<redacted>")
+        XCTAssertEqual(redacted["Cookie"], "<redacted>")
+        XCTAssertEqual(redacted["X-Request-ID"], "abc")
+    }
+
+    func test_safeURLString_redactsQueryAndFragmentSecrets() {
+        let redacted = safeURLString("https://example.com/path?token=abc#access_token=xyz")
+        XCTAssertFalse(redacted.contains("abc"))
+        XCTAssertFalse(redacted.contains("xyz"))
+        XCTAssertTrue(redacted.contains("token=REDACTED"))
+    }
+
+    func test_parseURL_redactsInvalidInputInErrorMessage() {
+        XCTAssertThrowsError(try parseURL("https://example .com/path?token=secret-value")) { error in
+            guard let toolError = error as? ToolError else {
+                return XCTFail("expected ToolError, got \(error)")
+            }
+            XCTAssertEqual(toolError.code, "INVALID_ARGS")
+            XCTAssertFalse(toolError.message.contains("secret-value"))
+            XCTAssertTrue(toolError.message.contains("token=REDACTED"))
+        }
+    }
+
+    func test_safeBodyFields_redactsTextAndBase64Mirror() throws {
+        let fields = safeBodyFields(Data("Authorization: Bearer secret12345".utf8))
+        XCTAssertTrue(fields.redacted)
+        XCTAssertFalse(fields.body.contains("secret12345"))
+        let decoded = try XCTUnwrap(String(data: try XCTUnwrap(Data(base64Encoded: fields.bodyBase64)), encoding: .utf8))
+        XCTAssertEqual(decoded, fields.body)
+    }
+
+    func test_safeJSONValue_redactsSensitiveKeysAndStringLeaves() throws {
+        let input: [String: Any] = [
+            "access_token": "secret-value",
+            "profile": [
+                "name": "Ada",
+                "callback": "https://example.com/callback?token=secret-value",
+            ],
+            "items": [
+                ["api_key": "secret-value"],
+                "Authorization: Bearer secret12345",
+            ],
+        ]
+
+        let safe = safeJSONValue(input)
+        XCTAssertTrue(safe.redacted)
+        let output = try XCTUnwrap(safe.value as? [String: Any])
+        XCTAssertEqual(output["access_token"] as? String, "REDACTED")
+        XCTAssertFalse(String(describing: output).contains("secret-value"))
+        XCTAssertFalse(String(describing: output).contains("secret12345"))
+        XCTAssertTrue(String(describing: output).contains("token=REDACTED"))
+    }
 }

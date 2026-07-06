@@ -1,4 +1,5 @@
 import Foundation
+import OsaurusToolSecurity
 
 #if canImport(Darwin)
     import Darwin
@@ -228,18 +229,22 @@ struct MultipartField: Decodable {
 
 final class FetchDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
     var redirectChain: [String] = []
+    var warnings: [String] = []
     var collected = Data()
     var truncated = false
     let maxBytes: Int
     let followRedirects: Bool
+    let allowPrivate: Bool
+    let redirectPolicy = RedirectPolicy()
     var protocolName: String?
     private let semaphore = DispatchSemaphore(value: 0)
     var taskError: Error?
     var response: HTTPURLResponse?
 
-    init(maxBytes: Int, followRedirects: Bool = true) {
+    init(maxBytes: Int, followRedirects: Bool = true, allowPrivate: Bool = false) {
         self.maxBytes = maxBytes
         self.followRedirects = followRedirects
+        self.allowPrivate = allowPrivate
     }
 
     func wait(timeout: TimeInterval) {
@@ -254,12 +259,50 @@ final class FetchDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDeleg
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
         if let oldURL = response.url?.absoluteString {
-            redirectChain.append(oldURL)
+            redirectChain.append(safeURLString(oldURL))
         }
         // Honor `follow_redirects: false`. Returning nil to the completion
         // handler stops the redirect; the original 3xx response is delivered
         // and `taskError` stays nil.
-        completionHandler(followRedirects ? request : nil)
+        guard followRedirects else {
+            completionHandler(nil)
+            return
+        }
+
+        guard let currentURL = response.url, let targetURL = request.url else {
+            taskError = ToolError(code: "INVALID_REDIRECT", message: "Redirect target was missing or invalid.")
+            completionHandler(nil)
+            return
+        }
+
+        do {
+            let decision = try redirectPolicy.evaluate(
+                from: currentURL,
+                to: targetURL,
+                headers: request.allHTTPHeaderFields ?? [:],
+                options: URLPolicyOptions(allowPrivateNetwork: allowPrivate)
+            )
+
+            var sanitized = request
+            let originalHeaders = request.allHTTPHeaderFields ?? [:]
+            for name in originalHeaders.keys {
+                sanitized.setValue(nil, forHTTPHeaderField: name)
+            }
+            for (name, value) in decision.headers {
+                sanitized.setValue(value, forHTTPHeaderField: name)
+            }
+            if decision.strippedSensitiveHeaders {
+                warnings.append("sensitive redirect headers were stripped for \(decision.target.redactedURL)")
+            }
+            warnings.append(contentsOf: decision.target.warnings)
+            completionHandler(sanitized)
+        } catch let error as WebSafetyError {
+            taskError = toolError(from: error, allowPrivate: allowPrivate)
+            completionHandler(nil)
+        } catch {
+            taskError = error
+            completionHandler(nil)
+        }
     }
 
     func urlSession(
@@ -321,6 +364,7 @@ struct HTTPResult {
     let redirectChain: [String]
     let protocolVersion: String?
     let truncated: Bool
+    let warnings: [String]
 }
 
 func executeRequest(
@@ -330,7 +374,8 @@ func executeRequest(
     body: RequestBody,
     timeout: TimeInterval,
     maxBytes: Int,
-    followRedirects: Bool
+    followRedirects: Bool,
+    allowPrivate: Bool
 ) throws -> HTTPResult {
     var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
     request.httpMethod = method.uppercased()
@@ -404,7 +449,7 @@ func executeRequest(
         request.setValue(v, forHTTPHeaderField: k)
     }
 
-    let delegate = FetchDelegate(maxBytes: maxBytes, followRedirects: followRedirects)
+    let delegate = FetchDelegate(maxBytes: maxBytes, followRedirects: followRedirects, allowPrivate: allowPrivate)
     let config = URLSessionConfiguration.ephemeral
     config.httpMaximumConnectionsPerHost = 4
     let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
@@ -414,6 +459,12 @@ func executeRequest(
     session.invalidateAndCancel()
 
     if let err = delegate.taskError {
+        if let toolError = err as? ToolError {
+            throw toolError
+        }
+        if let safetyError = err as? WebSafetyError {
+            throw toolError(from: safetyError, allowPrivate: allowPrivate)
+        }
         let nserr = err as NSError
         let code: String
         switch nserr.code {
@@ -441,7 +492,8 @@ func executeRequest(
         finalURL: response.url?.absoluteString ?? url.absoluteString,
         redirectChain: delegate.redirectChain,
         protocolVersion: delegate.protocolName,
-        truncated: delegate.truncated
+        truncated: delegate.truncated,
+        warnings: delegate.warnings
     )
 }
 
@@ -484,20 +536,119 @@ func headersFromAuth(_ auth: AuthHelper?) throws -> [String: String] {
 
 func parseURL(_ s: String) throws -> URL {
     guard let url = URL(string: s) else {
-        throw ToolError(code: "INVALID_ARGS", message: "Invalid URL: '\(s)'")
+        throw ToolError(code: "INVALID_ARGS", message: "Invalid URL: '\(safeURLString(s))'")
     }
     return url
 }
 
 func enforceSSRF(_ url: URL, allowPrivate: Bool) throws {
-    let check = checkSSRF(url: url, allowPrivate: allowPrivate)
-    if !check.allowed {
-        throw ToolError(
-            code: "SSRF_BLOCKED",
-            message: check.reason ?? "Request blocked by SSRF guard",
-            hint: "Set 'allow_private': true to bypass (use only for trusted local URLs)."
+    _ = try enforceURLPolicy(url, allowPrivate: allowPrivate)
+}
+
+func enforceURLPolicy(_ url: URL, allowPrivate: Bool) throws -> URLPolicyDecision {
+    do {
+        return try URLPolicy().validate(
+            url,
+            options: URLPolicyOptions(allowPrivateNetwork: allowPrivate)
         )
+    } catch let error as WebSafetyError {
+        throw toolError(from: error, allowPrivate: allowPrivate)
     }
+}
+
+func toolError(from error: WebSafetyError, allowPrivate: Bool) -> ToolError {
+    let hint: String?
+    switch error.code {
+    case .ssrfBlocked:
+        hint = allowPrivate
+            ? "Cloud metadata endpoints stay blocked even when private network access is allowed."
+            : "Set 'allow_private': true only for trusted local/private network URLs. Metadata endpoints remain blocked."
+    case .secretInURL:
+        hint = "Move credentials into the 'auth' helper or request headers instead of embedding them in the URL."
+    case .unsafeScheme:
+        hint = "Use an http or https URL."
+    case .downloadPathInvalid:
+        hint = "Pass a plain filename without directories."
+    }
+    return ToolError(code: error.code.rawValue, message: error.message, hint: hint)
+}
+
+func safeURLString(_ url: String) -> String {
+    WebSafetyRedactor.redactURL(url).value
+}
+
+func safeURLList(_ urls: [String]) -> [String] {
+    urls.map(safeURLString)
+}
+
+func safeHeaders(_ headers: [String: String]) -> [String: String] {
+    WebSafetyRedactor.redactHeaders(headers).value
+}
+
+func safeText(_ text: String) -> (value: String, redacted: Bool) {
+    let result = WebSafetyRedactor.redactText(text)
+    return (result.value, result.redacted)
+}
+
+func safeBodyFields(_ body: Data) -> (body: String, bodyBase64: String, redacted: Bool) {
+    guard let text = String(data: body, encoding: .utf8) else {
+        return ("", body.base64EncodedString(), false)
+    }
+    let redacted = safeText(text)
+    let redactedData = redacted.value.data(using: .utf8) ?? Data()
+    return (redacted.value, redactedData.base64EncodedString(), redacted.redacted)
+}
+
+func safeJSONValue(_ value: Any, key: String? = nil) -> (value: Any, redacted: Bool) {
+    if let key, isSensitiveJSONKey(key) {
+        return ("REDACTED", true)
+    }
+
+    if let string = value as? String {
+        let redacted = safeText(string)
+        return (redacted.value, redacted.redacted)
+    }
+
+    if let dict = value as? [String: Any] {
+        var output: [String: Any] = [:]
+        var didRedact = false
+        for (childKey, childValue) in dict {
+            let safe = safeJSONValue(childValue, key: childKey)
+            output[childKey] = safe.value
+            didRedact = didRedact || safe.redacted
+        }
+        return (output, didRedact)
+    }
+
+    if let array = value as? [Any] {
+        var didRedact = false
+        let output = array.map { item -> Any in
+            let safe = safeJSONValue(item)
+            didRedact = didRedact || safe.redacted
+            return safe.value
+        }
+        return (output, didRedact)
+    }
+
+    return (value, false)
+}
+
+private func isSensitiveJSONKey(_ key: String) -> Bool {
+    let normalized = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+        .replacingOccurrences(of: "_", with: "-")
+    if WebSafetyRedactor.isSensitiveHeaderName(normalized) {
+        return true
+    }
+    return normalized == "key"
+        || normalized.contains("token")
+        || normalized.contains("secret")
+        || normalized.contains("password")
+        || normalized == "passwd"
+        || normalized == "pwd"
+        || normalized.contains("credential")
+        || normalized.contains("signature")
+        || normalized == "sig"
 }
 
 /// Pick a safe download target under ~/Downloads.
@@ -509,35 +660,25 @@ func enforceSSRF(_ url: URL, allowPrivate: Bool) throws {
 /// Exposed (non-throwing of any non-ToolError) so tests can drive it without
 /// performing an HTTP request.
 func resolveDownloadTarget(requestedFilename: String?, url: URL) throws -> URL {
-    let candidate: String = {
-        if let user = requestedFilename, !user.isEmpty { return user }
-        if let last = url.pathComponents.last, !last.isEmpty, last != "/" { return last }
-        return "download_\(Int(Date().timeIntervalSince1970))"
-    }()
-
-    if candidate.contains("/") || candidate.contains("\\") || candidate.contains("..")
-        || candidate.hasPrefix(".") || candidate.hasPrefix("~")
-    {
-        throw ToolError(
-            code: "DOWNLOAD_PATH_INVALID",
-            message: "Filename contains path separators, '..', or starts with '.': '\(candidate)'",
-            hint: "Pass a plain filename without directories — it will always land in ~/Downloads."
-        )
-    }
-
     let downloadsDir = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Downloads")
         .standardizedFileURL
-    let target = downloadsDir.appendingPathComponent(candidate).standardizedFileURL
-
-    if !target.path.hasPrefix(downloadsDir.path + "/") {
-        throw ToolError(
-            code: "DOWNLOAD_PATH_INVALID",
-            message: "Resolved path '\(target.path)' is outside ~/Downloads",
-            hint: "Pass a plain filename only."
-        )
+    let sourceForFilename: URL?
+    let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+    if lastPathComponent.isEmpty || lastPathComponent == "/" {
+        sourceForFilename = nil
+    } else {
+        sourceForFilename = url
     }
-    return target
+    do {
+        return try DownloadPathValidator(baseDirectory: downloadsDir).resolve(
+            requestedFilename: requestedFilename,
+            sourceURL: sourceForFilename,
+            defaultFilename: "download_\(Int(Date().timeIntervalSince1970))"
+        )
+    } catch let error as WebSafetyError {
+        throw toolError(from: error, allowPrivate: false)
+    }
 }
 
 struct CommonRequestArgs: Decodable {
@@ -632,7 +773,8 @@ struct FetchTool {
     func run(args: String) throws -> [String: Any] {
         let parsed: CommonRequestArgs = try decodeArgs(args)
         let url = try parseURL(parsed.url)
-        try enforceSSRF(url, allowPrivate: parsed.allow_private ?? false)
+        let allowPrivate = parsed.allow_private ?? false
+        let policy = try enforceURLPolicy(url, allowPrivate: allowPrivate)
 
         var headers = parsed.headers ?? [:]
         for (k, v) in try headersFromAuth(parsed.auth) {
@@ -646,19 +788,23 @@ struct FetchTool {
             body: try bodyFromArgs(parsed),
             timeout: parsed.timeout ?? 30,
             maxBytes: parsed.max_bytes ?? 10 * 1024 * 1024,
-            followRedirects: parsed.follow_redirects ?? true
+            followRedirects: parsed.follow_redirects ?? true,
+            allowPrivate: allowPrivate
         )
 
+        let body = safeBodyFields(result.body)
         return [
             "status": result.status,
-            "final_url": result.finalURL,
-            "redirect_chain": result.redirectChain,
+            "final_url": safeURLString(result.finalURL),
+            "redirect_chain": safeURLList(result.redirectChain),
             "protocol_version": result.protocolVersion ?? NSNull(),
-            "headers": result.headers,
-            "body": String(data: result.body, encoding: .utf8) ?? "",
-            "body_base64": result.body.base64EncodedString(),
+            "headers": safeHeaders(result.headers),
+            "body": body.body,
+            "body_base64": body.bodyBase64,
             "byte_count": result.body.count,
+            "body_redacted": body.redacted,
             "truncated": result.truncated,
+            "policy_warnings": policy.warnings + result.warnings,
         ]
     }
 }
@@ -669,7 +815,8 @@ struct FetchJSONTool {
     func run(args: String) throws -> [String: Any] {
         let parsed: CommonRequestArgs = try decodeArgs(args)
         let url = try parseURL(parsed.url)
-        try enforceSSRF(url, allowPrivate: parsed.allow_private ?? false)
+        let allowPrivate = parsed.allow_private ?? false
+        let policy = try enforceURLPolicy(url, allowPrivate: allowPrivate)
 
         var headers = parsed.headers ?? [:]
         if headers["Accept"] == nil { headers["Accept"] = "application/json" }
@@ -684,22 +831,28 @@ struct FetchJSONTool {
             body: try bodyFromArgs(parsed),
             timeout: parsed.timeout ?? 30,
             maxBytes: parsed.max_bytes ?? 10 * 1024 * 1024,
-            followRedirects: parsed.follow_redirects ?? true
+            followRedirects: parsed.follow_redirects ?? true,
+            allowPrivate: allowPrivate
         )
 
         var data: [String: Any] = [
             "status": result.status,
-            "final_url": result.finalURL,
-            "redirect_chain": result.redirectChain,
+            "final_url": safeURLString(result.finalURL),
+            "redirect_chain": safeURLList(result.redirectChain),
             "protocol_version": result.protocolVersion ?? NSNull(),
-            "headers": result.headers,
+            "headers": safeHeaders(result.headers),
             "truncated": result.truncated,
+            "policy_warnings": policy.warnings + result.warnings,
         ]
         if let parsed = try? JSONSerialization.jsonObject(with: result.body) {
-            data["json"] = parsed
+            let safeJSON = safeJSONValue(parsed)
+            data["json"] = safeJSON.value
+            data["body_redacted"] = safeJSON.redacted
         } else {
             data["json"] = NSNull()
-            data["body"] = String(data: result.body, encoding: .utf8) ?? ""
+            let body = safeBodyFields(result.body)
+            data["body"] = body.body
+            data["body_redacted"] = body.redacted
             return data  // fall through with warning via caller? simpler: include both
         }
         return data
@@ -723,7 +876,8 @@ struct FetchHTMLTool {
         }
         let parsed: ExtractArgs = try decodeArgs(args)
         let url = try parseURL(parsed.url)
-        try enforceSSRF(url, allowPrivate: parsed.allow_private ?? false)
+        let allowPrivate = parsed.allow_private ?? false
+        let policy = try enforceURLPolicy(url, allowPrivate: allowPrivate)
 
         var headers: [String: String] = [
             "Accept": "text/html,application/xhtml+xml",
@@ -741,7 +895,8 @@ struct FetchHTMLTool {
             body: .none,
             timeout: parsed.timeout ?? 30,
             maxBytes: parsed.max_bytes ?? 10 * 1024 * 1024,
-            followRedirects: parsed.follow_redirects ?? true
+            followRedirects: parsed.follow_redirects ?? true,
+            allowPrivate: allowPrivate
         )
 
         guard let html = String(data: result.body, encoding: .utf8) else {
@@ -754,26 +909,33 @@ struct FetchHTMLTool {
         let mode = (parsed.extract ?? "readability").lowercased()
         var data: [String: Any] = [
             "status": result.status,
-            "final_url": result.finalURL,
-            "redirect_chain": result.redirectChain,
+            "final_url": safeURLString(result.finalURL),
+            "redirect_chain": safeURLList(result.redirectChain),
             "protocol_version": result.protocolVersion ?? NSNull(),
-            "headers": result.headers,
+            "headers": safeHeaders(result.headers),
             "truncated": result.truncated,
             "byte_count": result.body.count,
+            "policy_warnings": policy.warnings + result.warnings,
         ]
 
         switch mode {
         case "raw":
-            data["html"] = html
+            let redacted = safeText(html)
+            data["html"] = redacted.value
+            data["body_redacted"] = redacted.redacted
         case "text":
-            data["text"] = htmlToPlainText(html)
+            let redacted = safeText(htmlToPlainText(html))
+            data["text"] = redacted.value
+            data["body_redacted"] = redacted.redacted
         default:  // readability
             let extracted = readabilityExtract(html: html, selector: parsed.selector)
             data["title"] = extracted.title ?? NSNull()
             data["byline"] = extracted.byline ?? NSNull()
             data["excerpt"] = extracted.excerpt ?? NSNull()
             data["lang"] = extracted.lang ?? NSNull()
-            data["markdown"] = extracted.markdown
+            let redacted = safeText(extracted.markdown)
+            data["markdown"] = redacted.value
+            data["body_redacted"] = redacted.redacted
             data["word_count"] = extracted.wordCount
         }
         return data
@@ -794,7 +956,8 @@ struct DownloadTool {
         }
         let parsed: DownloadArgs = try decodeArgs(args)
         let url = try parseURL(parsed.url)
-        try enforceSSRF(url, allowPrivate: parsed.allow_private ?? false)
+        let allowPrivate = parsed.allow_private ?? false
+        let policy = try enforceURLPolicy(url, allowPrivate: allowPrivate)
 
         var headers: [String: String] = [:]
         for (k, v) in try headersFromAuth(parsed.auth) {
@@ -808,7 +971,8 @@ struct DownloadTool {
             body: .none,
             timeout: parsed.timeout ?? 60,
             maxBytes: parsed.max_bytes ?? 100 * 1024 * 1024,
-            followRedirects: true
+            followRedirects: true,
+            allowPrivate: allowPrivate
         )
 
         let target = try resolveDownloadTarget(
@@ -829,8 +993,9 @@ struct DownloadTool {
             "path": target.path,
             "size": result.body.count,
             "status": result.status,
-            "final_url": result.finalURL,
+            "final_url": safeURLString(result.finalURL),
             "truncated": result.truncated,
+            "policy_warnings": policy.warnings + result.warnings,
         ]
     }
 }
