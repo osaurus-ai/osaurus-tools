@@ -26,6 +26,11 @@ on:
         required: false
         type: string
         default: "macos-15"
+      registry_ref:
+        description: "osaurus-tools ref containing release policy"
+        required: false
+        type: string
+        default: "master"
     secrets:
       DEVELOPER_ID_CERTIFICATE_P12_BASE64:
         required: true
@@ -53,6 +58,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # A reusable workflow runs in the caller repository checkout. Fetch the
+      # registry lint policy separately. Callers testing a pending registry
+      # change can opt into its branch through registry_ref.
+      - name: Checkout registry release tooling
+        uses: actions/checkout@v4
+        with:
+          repository: osaurus-ai/osaurus-tools
+          ref: ${{ inputs.registry_ref }}
+          path: .osaurus-registry
+          sparse-checkout: scripts/manifest_lint.py
+          sparse-checkout-cone-mode: false
 
       - name: Extract version from tag
         id: version
@@ -120,74 +137,10 @@ jobs:
       - name: Lint manifest conformance
         env:
           EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          # Conformance gate: fail the release before signing/packaging when the
-          # extracted manifest would produce a broken or misversioned registry
-          # entry. No network access — pure static checks on the manifest JSON.
-          python3 - <<'PYEOF'
-          import json
-          import os
-          import re
-          import sys
-
-          with open("build-data/manifest.json", "r", encoding="utf-8") as f:
-              manifest = json.load(f)
-          expected_version = os.environ["EXPECTED_VERSION"]
-
-          errors = []
-
-          version = manifest.get("version")
-          if not isinstance(version, str) or not version.strip():
-              errors.append("manifest 'version' is missing or empty")
-          elif version != expected_version:
-              errors.append(
-                  f"manifest version '{version}' does not match "
-                  f"tag-derived version '{expected_version}'"
-              )
-
-          plugin_id = manifest.get("plugin_id")
-          if not isinstance(plugin_id, str) or not re.fullmatch(
-              r"[a-z0-9]+(\.[a-z0-9_-]+)+", plugin_id
-          ):
-              errors.append(
-                  f"plugin_id {plugin_id!r} is malformed "
-                  "(expected lowercase dot-separated, e.g. 'osaurus.fetch')"
-              )
-
-          capabilities = manifest.get("capabilities") or {}
-
-          seen_tool_ids = set()
-          for index, tool in enumerate(capabilities.get("tools") or []):
-              if not isinstance(tool, dict):
-                  errors.append(f"tool at index {index} is not an object")
-                  continue
-              tool_id = tool.get("id")
-              if not isinstance(tool_id, str) or not tool_id.strip():
-                  errors.append(f"tool at index {index} has a missing or empty id")
-                  label = f"tool at index {index}"
-              else:
-                  label = f"tool '{tool_id}'"
-                  if tool_id in seen_tool_ids:
-                      errors.append(f"duplicate tool id '{tool_id}'")
-                  seen_tool_ids.add(tool_id)
-              description = tool.get("description")
-              if not isinstance(description, str) or not description.strip():
-                  errors.append(f"{label} lacks a description")
-
-          for index, route in enumerate(capabilities.get("routes") or []):
-              if (
-                  not isinstance(route, dict)
-                  or not isinstance(route.get("id"), str)
-                  or not route["id"].strip()
-              ):
-                  errors.append(f"route at index {index} lacks an id")
-
-          if errors:
-              for error in errors:
-                  print(f"::error::manifest conformance: {error}")
-              sys.exit(1)
-          print("Manifest conformance lint passed")
-          PYEOF
+        run: >-
+          python3 .osaurus-registry/scripts/manifest_lint.py
+          --manifest build-data/manifest.json
+          --expected-version "$EXPECTED_VERSION"
 
       - name: Detect skills
         id: skills
@@ -347,11 +300,9 @@ jobs:
           AUTHORS=$(echo "$MANIFEST" | jq -c '.authors // ["${{ github.repository_owner }}"]')
           MIN_MACOS=$(echo "$MANIFEST" | jq -r '.min_macos // "13.0"')
           MIN_OSAURUS=$(echo "$MANIFEST" | jq -r '.min_osaurus // "0.5.0"')
-          # Preserve plugin-author-set optional fields (widget, defaultRender) when
-          # summarising tools. The projection only renames `id` → `name`; everything else
-          # the plugin declares passes through so the registry catalog the Osaurus app
-          # reads keeps the same shape as `RegistryCapabilities.ToolSummary`.
-          TOOLS=$(echo "$MANIFEST" | jq -c '[.capabilities.tools // [] | .[] | (.name = .id) | del(.id, .parameters, .requirements, .permission_policy)]')
+          # Project the full runtime tool contract into the catalog summary.
+          # Runtime-only schema and permission fields stay in the dylib.
+          TOOLS=$(echo "$MANIFEST" | jq -c '[.capabilities.tools // [] | .[] | {name: .id, description: .description}]')
 
           # Read skills metadata (from SKILL.md detection)
           SKILLS="[]"

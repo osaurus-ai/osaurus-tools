@@ -68,8 +68,8 @@ def validate_versions_order(versions, filepath):
 def validate_requires(data, filepath):
     """
     Every plugin must declare the minimum Osaurus version at the top level:
-    either 'requires.osaurus_min_version' (external plugins) or 'min_osaurus'
-    (core tools, synced from the dylib manifest by regenerate-catalogs.py).
+    normally as 'requires.osaurus_min_version'. The legacy top-level
+    'min_osaurus' spelling remains accepted for older catalog entries.
     """
     requires = data.get("requires")
     if requires is not None and not isinstance(requires, dict):
@@ -84,7 +84,10 @@ def validate_requires(data, filepath):
         field = "min_osaurus"
 
     if not isinstance(min_version, str) or not min_version:
-        print(f"Error in {filepath}: Missing top-level 'requires.osaurus_min_version' (or 'min_osaurus' for core tools)")
+        print(
+            f"Error in {filepath}: Missing top-level "
+            "'requires.osaurus_min_version'"
+        )
         return False
 
     if not validate_semver(min_version):
@@ -345,10 +348,18 @@ def validate_capabilities(capabilities, context):
                     print(f"Error in {tc}: tool must have a non-empty string 'name'")
                     valid = False
                     continue
+                name = name.strip()
                 if name in seen_tool_names:
                     print(f"Error in {tc}: duplicate tool name '{name}'")
                     valid = False
                 seen_tool_names.add(name)
+                description = tool.get("description")
+                if not isinstance(description, str) or not description.strip():
+                    print(
+                        f"Error in {tc}: tool must have a non-empty string "
+                        "'description'"
+                    )
+                    valid = False
 
     # skills: array of {name, description} or null
     if "skills" in capabilities and capabilities["skills"] is not None:
@@ -357,10 +368,31 @@ def validate_capabilities(capabilities, context):
             print(f"Error in {context}: 'capabilities.skills' must be an array or null")
             valid = False
         else:
+            seen_skill_names = set()
             for idx, skill in enumerate(skills):
                 sc = f"{context} -> skills[{idx}]"
                 if not isinstance(skill, dict):
                     print(f"Error in {sc}: each skill must be an object")
+                    valid = False
+                    continue
+                name = skill.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    print(
+                        f"Error in {sc}: skill must have a non-empty string 'name'"
+                    )
+                    valid = False
+                else:
+                    name = name.strip()
+                    if name in seen_skill_names:
+                        print(f"Error in {sc}: duplicate skill name '{name}'")
+                        valid = False
+                    seen_skill_names.add(name)
+                description = skill.get("description")
+                if not isinstance(description, str) or not description.strip():
+                    print(
+                        f"Error in {sc}: skill must have a non-empty string "
+                        "'description'"
+                    )
                     valid = False
 
     # routes (v2): array of {name, description}
@@ -370,17 +402,31 @@ def validate_capabilities(capabilities, context):
             print(f"Error in {context}: 'capabilities.routes' must be an array or null")
             valid = False
         else:
+            seen_route_names = set()
             for idx, route in enumerate(routes):
                 rc = f"{context} -> routes[{idx}]"
                 if not isinstance(route, dict):
                     print(f"Error in {rc}: each route must be an object")
                     valid = False
                     continue
-                if "name" not in route:
-                    print(f"Error in {rc}: route missing 'name'")
+                name = route.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    print(
+                        f"Error in {rc}: route must have a non-empty string 'name'"
+                    )
                     valid = False
-                if "description" not in route:
-                    print(f"Error in {rc}: route missing 'description'")
+                else:
+                    name = name.strip()
+                    if name in seen_route_names:
+                        print(f"Error in {rc}: duplicate route name '{name}'")
+                        valid = False
+                    seen_route_names.add(name)
+                description = route.get("description")
+                if not isinstance(description, str) or not description.strip():
+                    print(
+                        f"Error in {rc}: route must have a non-empty string "
+                        "'description'"
+                    )
                     valid = False
 
     # config (v2): object (validated at runtime by host, just type-check here)
@@ -396,6 +442,92 @@ def validate_capabilities(capabilities, context):
             valid = False
 
     return valid
+
+
+def parse_skill_frontmatter(skill_text, context):
+    """Parse the required scalar name/description from SKILL.md frontmatter."""
+    if not isinstance(skill_text, str):
+        print(f"Error in {context}: top-level 'skill' must be a string")
+        return None
+
+    lines = skill_text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        print(f"Error in {context}: skill must start with YAML frontmatter ('---')")
+        return None
+
+    try:
+        closing_index = next(
+            idx for idx, line in enumerate(lines[1:], start=1) if line.strip() == "---"
+        )
+    except StopIteration:
+        print(f"Error in {context}: skill YAML frontmatter is not closed")
+        return None
+
+    values = {}
+    for line in lines[1:closing_index]:
+        if not line or line[0].isspace() or ":" not in line:
+            continue
+        key, raw_value = line.split(":", 1)
+        key = key.strip()
+        if key not in {"name", "description"}:
+            continue
+        if key in values:
+            print(f"Error in {context}: duplicate skill frontmatter key '{key}'")
+            return None
+        value = raw_value.strip()
+        if len(value) >= 2 and value[0] == value[-1] == '"':
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                print(
+                    f"Error in {context}: invalid quoted value for skill "
+                    f"frontmatter '{key}'"
+                )
+                return None
+        elif len(value) >= 2 and value[0] == value[-1] == "'":
+            value = value[1:-1].replace("''", "'")
+        values[key] = value
+
+    for field in ("name", "description"):
+        value = values.get(field)
+        if not isinstance(value, str) or not value.strip():
+            print(
+                f"Error in {context}: skill frontmatter requires a non-empty "
+                f"'{field}'"
+            )
+            return None
+        values[field] = value.strip()
+    return values
+
+
+def validate_skill(skill_text, capabilities, context):
+    """Require embedded SKILL.md metadata to match capabilities.skills."""
+    frontmatter = parse_skill_frontmatter(skill_text, context)
+    if frontmatter is None:
+        return False
+
+    skills = capabilities.get("skills") if isinstance(capabilities, dict) else None
+    if not isinstance(skills, list) or not skills:
+        print(
+            f"Error in {context}: embedded skill requires a non-empty "
+            "'capabilities.skills' array"
+        )
+        return False
+
+    matches = [
+        skill
+        for skill in skills
+        if isinstance(skill, dict)
+        and skill.get("name") == frontmatter["name"]
+        and skill.get("description") == frontmatter["description"]
+    ]
+    if len(matches) != 1:
+        print(
+            f"Error in {context}: skill frontmatter name/description must match "
+            "exactly one capabilities.skills entry"
+        )
+        return False
+    return True
 
 
 def validate_docs(docs, context):
@@ -541,7 +673,10 @@ def validate_plugin_file(filepath, seen_ids):
         return False
 
     if not re.match(r"^[a-z0-9]+(\.[a-z0-9_-]+)+$", plugin_id):
-        print(f"Error: plugin_id '{plugin_id}' must be in dot-separated format (e.g., osaurus.fetch, mycompany.my-tool)")
+        print(
+            f"Error: plugin_id '{plugin_id}' must be in dot-separated format "
+            "(e.g., com.example.plugin)"
+        )
         return False
 
     # Unique Constraint: Ensure no duplicate plugin_ids (case-insensitive)
@@ -572,6 +707,10 @@ def validate_plugin_file(filepath, seen_ids):
 
     if "capabilities" in data:
         if not validate_capabilities(data["capabilities"], filepath):
+            return False
+
+    if "skill" in data:
+        if not validate_skill(data["skill"], data.get("capabilities"), filepath):
             return False
 
     if "docs" in data:
@@ -606,30 +745,6 @@ def validate_plugin_file(filepath, seen_ids):
             
     return valid
 
-def check_catalog_drift(script_dir):
-    """
-    Run scripts/regenerate-catalogs.py --check to detect drift between
-    plugins/<id>.json catalog files and the embedded dylib manifests in
-    tools/<tool>/Sources/*/Plugin.swift.
-    """
-    regen_script = os.path.join(script_dir, "regenerate-catalogs.py")
-    if not os.path.isfile(regen_script):
-        # Not present in older trees — skip silently.
-        return True
-
-    print("\nChecking catalog/manifest drift...")
-    result = subprocess.run(
-        [sys.executable, regen_script, "--check"],
-        capture_output=True,
-        text=True,
-    )
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.stderr:
-        print(result.stderr, end="", file=sys.stderr)
-    return result.returncode == 0
-
-
 def main():
     # Look for plugins directory relative to this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -652,11 +767,6 @@ def main():
     for json_file in json_files:
         if not validate_plugin_file(json_file, seen_ids):
             failed = True
-
-    # Catalog-vs-manifest drift check (covers official tools whose source
-    # lives alongside the registry; external plugins are unaffected).
-    if not check_catalog_drift(script_dir):
-        failed = True
 
     if failed:
         print("\nValidation FAILED.")

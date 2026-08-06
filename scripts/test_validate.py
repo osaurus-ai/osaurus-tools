@@ -128,8 +128,132 @@ class TestCapabilitiesToolNames(unittest.TestCase):
         caps = self._caps(["search"])
         self.assertFalse(validate.validate_capabilities(caps, "test.json"))
 
+    def test_missing_tool_description_fails(self):
+        caps = self._caps([{"name": "search"}])
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
+    def test_empty_tool_description_fails(self):
+        caps = self._caps([{"name": "search", "description": "  "}])
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
     def test_empty_tools_array_passes(self):
         self.assertTrue(validate.validate_capabilities(self._caps([]), "test.json"))
+
+
+class TestCapabilitiesSkills(unittest.TestCase):
+    def test_unique_named_skills_pass(self):
+        caps = {
+            "skills": [
+                {"name": "calendar", "description": "Use when managing events."},
+                {"name": "mail", "description": "Use when managing email."},
+            ]
+        }
+        self.assertTrue(validate.validate_capabilities(caps, "test.json"))
+
+    def test_null_skills_pass_for_legacy_no_skill_catalogs(self):
+        self.assertTrue(
+            validate.validate_capabilities({"skills": None}, "test.json")
+        )
+
+    def test_duplicate_skill_names_fail(self):
+        caps = {
+            "skills": [
+                {"name": "mail", "description": "Use when reading email."},
+                {"name": "mail", "description": "Use when sending email."},
+            ]
+        }
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
+    def test_missing_skill_name_fails(self):
+        caps = {"skills": [{"description": "Use when managing email."}]}
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
+    def test_empty_skill_description_fails(self):
+        caps = {"skills": [{"name": "mail", "description": ""}]}
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
+
+class TestRoutes(unittest.TestCase):
+    def test_named_described_routes_pass(self):
+        caps = {
+            "routes": [
+                {"name": "webhook", "description": "Receive provider events."}
+            ]
+        }
+        self.assertTrue(validate.validate_capabilities(caps, "test.json"))
+
+    def test_empty_route_description_fails(self):
+        caps = {"routes": [{"name": "webhook", "description": " "}]}
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
+    def test_duplicate_route_names_fail(self):
+        caps = {
+            "routes": [
+                {"name": "webhook", "description": "Receive events."},
+                {"name": "webhook", "description": "Receive more events."},
+            ]
+        }
+        self.assertFalse(validate.validate_capabilities(caps, "test.json"))
+
+
+class TestEmbeddedSkill(unittest.TestCase):
+    SKILL = (
+        "---\n"
+        "name: osaurus-mail\n"
+        "description: Use when reading or sending email.\n"
+        "---\n"
+        "\n"
+        "# Mail\n"
+    )
+
+    def test_matching_skill_metadata_passes(self):
+        caps = {
+            "skills": [
+                {
+                    "name": "osaurus-mail",
+                    "description": "Use when reading or sending email.",
+                }
+            ]
+        }
+        self.assertTrue(validate.validate_skill(self.SKILL, caps, "test.json"))
+
+    def test_skill_must_be_a_string(self):
+        self.assertFalse(validate.validate_skill({}, {"skills": []}, "test.json"))
+
+    def test_frontmatter_is_required(self):
+        self.assertFalse(
+            validate.validate_skill(
+                "# Mail\n", {"skills": []}, "test.json"
+            )
+        )
+
+    def test_frontmatter_description_is_required(self):
+        skill = "---\nname: osaurus-mail\n---\n# Mail\n"
+        self.assertFalse(
+            validate.validate_skill(skill, {"skills": []}, "test.json")
+        )
+
+    def test_frontmatter_must_match_capability(self):
+        caps = {
+            "skills": [
+                {
+                    "name": "different-name",
+                    "description": "Use when reading or sending email.",
+                }
+            ]
+        }
+        self.assertFalse(validate.validate_skill(self.SKILL, caps, "test.json"))
+
+    def test_frontmatter_description_must_match_capability(self):
+        caps = {
+            "skills": [
+                {
+                    "name": "osaurus-mail",
+                    "description": "A different description.",
+                }
+            ]
+        }
+        self.assertFalse(validate.validate_skill(self.SKILL, caps, "test.json"))
 
 
 class TestArtifactVerification(unittest.TestCase):

@@ -1,15 +1,24 @@
 # Changelog
 
-All notable changes to the official Osaurus core tools and registry. Per-plugin
-release notes live in each tool's own `tools/<tool>/CHANGELOG.md`.
+All notable registry changes are documented here. Per-plugin release notes
+live in each plugin's external repository.
 
-> **Correction (2026-07-16):** the "Notes on signing" section below documents
-> the November 2025 key as the current registry public key, but the minisign
-> keypair has since been rotated again (April 2026). The current registry
-> public key for the four core tools is
-> `RWTmCafy0+6ViS/ZFdYN+4v3ATECbUamgj4WDgGz7R2/DD1UEHp1eXwt` — always treat
-> `public_keys.minisign` in `plugins/<id>.json` as the source of truth. The
-> original text is preserved unchanged below.
+## Registry update (2026-08-06) — core capability retirements
+
+### Removed
+
+- **`osaurus.browser`** — superseded by the core app's host-managed browser
+  and Computer Use capabilities.
+- **`osaurus.fetch`** — superseded by native web retrieval and the host HTTP
+  client.
+- **`osaurus.messages`** — superseded by the core Messages integration.
+- **`osaurus.telegram`** — superseded by the core Connections and Telegram
+  transport.
+
+Their catalog files, in-repository source, and dedicated build/release support
+have been removed. Existing installed copies continue to work, and all signed
+GitHub release artifacts remain available by direct URL. Upgrade the host
+before uninstalling a legacy copy; see [migration guidance](docs/MIGRATION.md).
 
 ## Registry update (2026-07-17) — time, search, and macos-use retired
 
@@ -59,53 +68,12 @@ The catalog files for both plugins have been deleted from `plugins/`. Existing
 GitHub release artifacts remain reachable by direct URL but are no longer
 discoverable through the registry.
 
-### Changed
-
-- **`time`, `fetch`, and `search`** now ship a uniform response envelope
-  across every tool:
-
-  ```json
-  { "ok": true,  "data": { ... }, "warnings": ["..."] }
-  { "ok": false, "error": { "code": "...", "message": "...", "hint": "..." } }
-  ```
-
-  This is a **breaking change** for any client that read the previous shapes
-  (`{"error": "..."}`, plain strings, `{"diff": "...", "stats": "..."}`,
-  etc.). Bad arguments and unknown timezone IDs now produce structured
-  `INVALID_ARGS` errors instead of silently falling back to defaults.
-
-- **`browser`** uses the same envelope for all **new** tools (console,
-  network, dialog, viewport, UA, cookies, lock). The pre-existing tools
-  (`browser_navigate`, `browser_click`, `browser_do`, etc.) keep their
-  plain-text snapshot output for back-compat with the existing test
-  suite; they will migrate to the envelope in a future minor release.
-
-- **Branding unified.** All catalog and dylib manifests now declare
-  `authors: ["Osaurus Team"]`. Display names dropped the `"Osaurus "` prefix
-  (`"Osaurus Time"` → `"Time"`, etc.). The `plugin_id` namespace
-  (`osaurus.<name>`) is unchanged.
-
-- **Single source of truth for catalog metadata.** The registry catalog files
-  in `plugins/<id>.json` are now derived from each tool's embedded
-  `get_manifest()` JSON via [`scripts/regenerate-catalogs.py`](scripts/regenerate-catalogs.py).
-  CI fails any PR where the two drift apart. Distribution-only fields
-  (`versions[]`, `public_keys`, `homepage`, `docs`, `skill`) remain
-  registry-owned and are preserved untouched.
-
 ### Per-tool highlights
 
 - **`osaurus.time`** — adds `parse_date`, `convert_timezone`, `add_duration`,
   `diff_dates`, `list_timezones`. `format_date` finally accepts the date
   strings its description always claimed. Forces `en_US_POSIX` locale for
   `relative` mode unless `locale` is passed.
-- **`osaurus.fetch`** — SSRF guard blocks private/loopback/link-local/metadata
-  IPs by default (`allow_private: true` to opt out). `max_bytes` cap (default
-  10 MB) with explicit `truncated` flag. Every tool now returns `final_url`,
-  `redirect_chain`, `protocol_version`, and headers. Bearer/Basic auth
-  helpers. `fetch_html` replaces the regex stripper with a Readability-style
-  extractor returning `markdown`, `title`, `byline`, `excerpt`, `lang`,
-  `word_count`. `download` rejects path separators / `..` / absolute paths in
-  `filename`.
 - **`osaurus.search`** — pluggable API backends (Tavily, Brave Search API,
   Serper, Google CSE, Kagi, You.com) behind the secrets schema, with the
   free DDG → Brave → Bing scraping cascade as fallback. Per-result
@@ -113,41 +81,4 @@ discoverable through the registry.
   by URL. First-class `site`, `filetype`, `time_range` params. `offset` /
   `page` pagination. Fixes `uddg=` redirect unwrapping in the DDG-lite path
   and the numeric-HTML-entity decoder. New `search_and_extract` runs search
-  + Readability-fetch on the top N URLs in one call.
-- **`osaurus.browser`** — **per-agent persistent browser sessions**: each
-  Osaurus agent now has its own on-disk `WKWebsiteDataStore` keyed by a
-  per-agent `profile_id`, so cookies / localStorage / IndexedDB survive
-  across runs and stay isolated between agents. Agent-triggered sign-in via
-  the new `browser_open_login` tool, which pops a visible `WKWebView`
-  bound to the same data store — the user signs in once (OAuth, 2FA,
-  captchas all work in a real window) and the headless instance is
-  immediately authenticated. New `browser_reset_session` wipes the active
-  agent's profile. `browser_navigate` now returns a structured
-  `LOGIN_REQUIRED` error envelope when navigation lands on a login page,
-  so the agent never has to ask the user for credentials in chat. Plugin
-  upgraded to **ABI v2** to receive the host's per-agent
-  `config_get` / `config_set` callbacks. `min_macos` raised to **14.0**
-  for `WKWebsiteDataStore(forIdentifier:)`. Snapshots are ARIA-YAML with
-  inline `[E1]` refs for parity with Playwright MCP and Cursor's browser
-  MCP. Also adds `browser_console_messages`, `browser_network_requests`,
-  `browser_handle_dialog`, `browser_set_viewport`, `browser_set_user_agent`,
-  `browser_cookies`, and explicit `browser_lock` / `browser_unlock` for
-  multi-agent safety. `wait_until: "networkidle"` uses real request
-  instrumentation. `escapeSelector` is hardened.
-
-### Notes on signing
-
-The minisign keypair was rotated in November 2025 (commits `8ec6500 fix keys`
-and `2f3ade7 remove invalid versions`). The current registry public key for
-all four kept core tools is
-
-```
-RWTBNLjKflgtwJIKPYHuGjVNR8Huce4PvIRgLzxsd5DrdvB+I5KjeeC3
-```
-
-Any plugin version signed before the rotation is unverifiable against this
-key — reinstalling via the registry pulls only the newer, currently-signed
-builds. `scripts/build-tool.sh` now refuses to build a release if the
-in-repo `public_keys.minisign` doesn't match the `MINISIGN_PUBLIC_KEY`
-environment variable, so a future rotation can't silently produce
-unverifiable artifacts.
+  plus content extraction on the top results in one call.
