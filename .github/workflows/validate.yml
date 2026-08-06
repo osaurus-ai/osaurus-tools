@@ -5,9 +5,16 @@ on:
     branches: [master, main]
     paths:
       - "plugins/**"
-      - "scripts/validate.py"
+      - "scripts/**"
+      - ".github/workflows/validate.yml"
+      - ".github/workflows/build-plugin.yml"
   pull_request:
     branches: [master, main]
+    paths:
+      - "plugins/**"
+      - "scripts/**"
+      - ".github/workflows/validate.yml"
+      - ".github/workflows/build-plugin.yml"
 
 jobs:
   discord-notify:
@@ -99,31 +106,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y minisign
 
+      - name: Run validator unit tests
+        run: |
+          python3 scripts/test_validate.py
+          python3 scripts/test_manifest_lint.py
+
       - name: Validate plugin manifests
         env:
           VERIFY_SIGNATURES: "true"
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: python scripts/validate.py
-
-  build-check:
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Build and test all plugins
-        run: |
-          for tool in browser fetch; do
-            echo "Building $tool..."
-            cd tools/$tool
-            swift build -c release
-            echo "Testing $tool..."
-            swift test
-            cd ../..
-          done

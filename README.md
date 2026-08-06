@@ -2,21 +2,13 @@
 
 Central registry for community tools and plugins for [Osaurus](https://github.com/osaurus-ai/osaurus).
 
-## Official Core Tools
+Plugin source and signed releases live in their own repositories. This
+repository contains discovery catalogs, validation, and the reusable release
+workflow used by external plugin repositories.
 
-| Plugin ID         | Description                                                                                                                                                            | Tools                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `osaurus.fetch`   | HTTP client with SSRF guard, response size limits, and Readability-style HTML extraction                                                                               | `fetch`, `fetch_json`, `fetch_html`, `download`                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `osaurus.browser` | Agent-friendly headless WebKit browser with **per-agent persistent sessions** (cookies / localStorage survive across runs and stay isolated per agent), agent-triggered sign-in window, ARIA-YAML snapshots, console/network inspection, dialogs, viewport/UA control, cookies, and a cooperative lock | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_select`, `browser_hover`, `browser_scroll`, `browser_do`, `browser_press_key`, `browser_wait_for`, `browser_screenshot`, `browser_execute_script`, `browser_console_messages`, `browser_network_requests`, `browser_handle_dialog`, `browser_set_viewport`, `browser_set_user_agent`, `browser_cookies`, `browser_lock`, `browser_open_login`, `browser_reset_session` |
-
-> Filesystem and Git operations are first-class in the host app via the working-folder context (and the sandbox VM for shell). The `osaurus.filesystem` and `osaurus.git` plugins were removed in `2.0.0`. The `osaurus.time`, `osaurus.search`, and `osaurus.macos-use` plugins were retired in July 2026 in favor of the host's built-ins: `get_current_time`, native web search (`web_search`, `search_and_extract`), and the Computer Use subagent — see [CHANGELOG.md](CHANGELOG.md).
-
-### Installation
-
-```bash
-osaurus tools install osaurus.fetch
-osaurus tools install osaurus.browser
-```
+See the canonical [plugin contract](docs/PLUGIN_CONTRACT.md), the
+[coordinated release runbook](docs/COORDINATED_RELEASES.md), and
+[retired-plugin migration guidance](docs/MIGRATION.md).
 
 ## Adding a Plugin to the Registry
 
@@ -27,7 +19,7 @@ osaurus tools install osaurus.browser
 
 ## Plugin Specification
 
-Plugins are distributed as a `.dylib` in a zip file. The manifest is embedded in the plugin binary. Osaurus supports two ABI versions — v1 (tools only) and v2 (full host API: routes, config, web, storage, agent dispatch, inference, models, HTTP client). See the [Plugin Authoring Guide](https://github.com/osaurus-ai/osaurus/blob/main/docs/PLUGIN_AUTHORING.md) for the full specification.
+Plugins are distributed as a `.dylib` in a zip file. The manifest is embedded in the plugin binary. Osaurus supports two ABI versions — v1 (tools only) and v2 (the full host API). See the [Plugin Authoring Guide](https://github.com/osaurus-ai/osaurus/blob/master/docs/plugins/AUTHORING.md) for the ABI and the local [plugin contract](docs/PLUGIN_CONTRACT.md) for release gates.
 
 ### Zip Structure
 
@@ -80,6 +72,10 @@ mycompany.mytool-1.0.0.zip
       { "label": "Documentation", "url": "https://docs.example.com/mytool" }
     ]
   },
+  "requires": {
+    "min_macos": "13.0",
+    "osaurus_min_version": "0.5.0"
+  },
   "public_keys": {
     "minisign": "RWxxxxxxxxxxxxxxxx"
   },
@@ -88,9 +84,6 @@ mycompany.mytool-1.0.0.zip
       "version": "1.0.0",
       "release_date": "2025-01-01",
       "notes": "Initial release",
-      "requires": {
-        "osaurus_min_version": "0.5.0"
-      },
       "artifacts": [
         {
           "os": "macos",
@@ -114,6 +107,7 @@ mycompany.mytool-1.0.0.zip
 | `plugin_id`   | Unique identifier in dot-separated format (e.g., `mycompany.mytool`) |
 | `name`        | Display name                                                         |
 | `public_keys` | Dictionary of public keys for signature verification                 |
+| `requires`    | Minimum host and macOS compatibility                                 |
 | `versions`    | List of available versions                                           |
 
 ### Optional Fields
@@ -159,7 +153,7 @@ mycompany.mytool-1.0.0.zip
 
 v2 extends the plugin system with a full host API spanning 15 callbacks across 7 capability groups: config store, data store, logging, agent dispatch, inference, models, and HTTP client. Plugins can also declare routes, configuration UI, static web serving, and documentation. These capabilities are entirely optional — a v2 plugin can use any combination of them.
 
-For the full v2 ABI specification (entry points, host API callbacks, storage, routes, config, dispatch, inference), see the [Plugin Authoring Guide](https://github.com/osaurus-ai/osaurus/blob/main/docs/PLUGIN_AUTHORING.md).
+For the full v2 ABI specification (entry points, host API callbacks, storage, routes, config, dispatch, inference), see the [Plugin Authoring Guide](https://github.com/osaurus-ai/osaurus/blob/master/docs/plugins/AUTHORING.md).
 
 ### Routes
 
@@ -229,25 +223,28 @@ Use the reusable workflow to automatically build, sign, release, and register yo
 
 ### 1. Manifest Requirements
 
-Your plugin's `get_manifest()` function must return valid JSON with these fields:
+Your plugin's `get_manifest()` function must return valid JSON with these
+fields:
 
-| Field                 | Required | Description                                                                  |
-| --------------------- | -------- | ---------------------------------------------------------------------------- |
-| `plugin_id`           | Yes      | Unique identifier (e.g., `myname.weather`)                                   |
-| `description`         | Yes      | Brief description of what the plugin does                                    |
-| `capabilities.tools`  | Yes      | Array of tool definitions                                                    |
-| `name`                | No       | Display name (defaults to plugin_id suffix)                                  |
-| `license`             | No       | License identifier (defaults to `MIT`)                                       |
-| `authors`             | No       | Array of author names (defaults to repo owner)                               |
-| `min_macos`           | No       | Minimum macOS version (defaults to `13.0`)                                   |
-| `min_osaurus`         | No       | Minimum Osaurus version (defaults to `0.5.0`)                                |
-| `secrets`             | No       | Array of secret definitions for API keys/credentials                         |
-| `capabilities.routes` | No       | Array of HTTP route definitions (v2)                                         |
-| `capabilities.config` | No       | Configuration UI schema rendered in the Management window (v2)               |
-| `capabilities.web`    | No       | Static web serving declaration (`static_dir`, `entry`, `mount`, `auth`) (v2) |
-| `docs`                | No       | Documentation metadata (`readme`, `changelog`, `links`) (v2)                 |
+| Field                           | Required | Description                                      |
+| ------------------------------- | -------- | ------------------------------------------------ |
+| `plugin_id`                     | Yes      | Lowercase dot-separated identifier               |
+| `version`                       | Yes      | Semantic version matching the release tag        |
+| `description`                   | Yes      | Brief description of what the plugin does        |
+| `capabilities`                  | Yes      | Runtime capability declarations                  |
+| `capabilities.tools`            | No       | Array of full tool definitions                   |
+| `capabilities.routes`           | No       | Array of HTTP route definitions (v2)              |
+| `capabilities.config`           | No       | Native configuration UI declaration (v2)         |
+| `capabilities.web`              | No       | Static web serving declaration (v2)              |
+| `capabilities.artifact_handler` | No       | Whether the plugin handles shared artifacts (v2) |
+| `instructions`                  | No       | Plugin-initiated inference instructions          |
+| `secrets`                       | No       | API key or credential declarations               |
+| `docs`                          | No       | README, changelog, and external links             |
 
-Note: Version is extracted from the Git tag (e.g., `v1.0.0` or `1.0.0`), not from the manifest.
+Each tool supports exactly `id`, `description`, `parameters`, `requirements`,
+and `permission_policy`. Do not add unsupported `annotations` or
+`outputSchema` fields. See [Plugin Contract](docs/PLUGIN_CONTRACT.md) for
+schema and permission rules.
 
 ### Plugin Secrets
 
@@ -313,7 +310,7 @@ func run(args: String) -> String {
     }
 
     // Use the API key for requests
-    let result = fetchWeather(location: input.location, apiKey: apiKey)
+    let result = requestWeather(location: input.location, apiKey: apiKey)
     return "{\"weather\": \"\(result)\"}"
 }
 ```
@@ -382,75 +379,19 @@ The workflow will:
 5. Create a GitHub Release with the artifact
 6. Submit a PR to the osaurus-tools registry
 
-## Development
+## Registry development
 
-### Building System Tools
-
-```bash
-# Build a single tool
-./scripts/build-tool.sh time --version 1.0.0
-
-# Build all tools
-./scripts/build-tool.sh all --version 1.0.0
-```
-
-Build output goes to `build/<tool-name>/`. The `--version` flag is required.
-
-To extract and verify the manifest from a built plugin:
+Run the static unit tests and catalog validator before submitting changes:
 
 ```bash
-osaurus manifest extract build/time/staging/*.dylib | jq .
+python3 scripts/test_validate.py
+python3 scripts/test_manifest_lint.py
+python3 scripts/validate.py
 ```
 
-### Creating a New Tool
-
-1. Create directory structure:
-
-   ```
-   tools/mytool/
-   ├── Package.swift
-   ├── Sources/OsaurusMytool/Plugin.swift
-   ├── SKILL.md               # Optional: AI skill guidance
-   ├── README.md              # Optional: displayed in plugin detail UI
-   ├── CHANGELOG.md           # Optional: displayed in Changelog tab
-   └── web/                   # Optional: static frontend assets (v2)
-   ```
-
-2. Implement the plugin using the [C ABI](https://github.com/osaurus-ai/osaurus/blob/main/docs/PLUGIN_AUTHORING.md). The manifest is embedded directly in `Plugin.swift` via the `get_manifest` function. See existing tools for examples.
-   - **v1 plugins** export `osaurus_plugin_entry` — sufficient for tools-only plugins.
-   - **v2 plugins** export `osaurus_plugin_entry_v2(const osr_host_api* host)` — required for routes, config, web, storage, agent dispatch, inference, or HTTP. The host API provides 15 callbacks across 7 capability groups (config store, data store, logging, agent dispatch, inference, models, HTTP client). The v2 ABI is a superset of v1; Osaurus falls back to v1 if the v2 symbol is not found.
-
-3. Build and test:
-
-   ```bash
-   ./scripts/build-tool.sh mytool --version 1.0.0
-   osaurus tools install ./build/mytool/osaurus.mytool-1.0.0-macos-arm64.zip
-   ```
-
-   The build script automatically includes `SKILL.md`, `README.md`, `CHANGELOG.md`, and `web/` in the zip if they exist in the tool directory.
-
-### Releasing
-
-```bash
-# Release a single tool (version is required)
-./scripts/release.sh time 1.0.0
-git push origin time-1.0.0
-
-# Release all tools with the same version
-./scripts/release.sh all 1.0.0
-git push origin --tags
-```
-
-The GitHub Actions workflow will:
-
-1. Build and test the plugin for macOS arm64
-2. Create a GitHub Release with the artifact
-3. Open a PR to update the registry JSON
-
-This in-repo release workflow (`build-and-release.yml`) requires the same
-signing secrets as external plugins plus a `GH_PAT` secret (GitHub PAT used to
-open the registry update PR). Note the different name: external plugin repos
-calling the reusable `build-plugin.yml` workflow use `REGISTRY_PAT` instead.
+Plugin implementation, build, and Swift tests belong in the plugin's external
+repository. Use the reusable workflow documented above to create signed
+releases and generated registry pull requests.
 
 ## License
 
