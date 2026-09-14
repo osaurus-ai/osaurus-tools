@@ -26,7 +26,9 @@ class BrowserTestCase: XCTestCase {
             return
         }
 
-        if NSApp == nil {
+        if NSApp == nil, Thread.isMainThread {
+            _ = NSApplication.shared
+        } else if NSApp == nil {
             DispatchQueue.main.sync { _ = NSApplication.shared }
         }
 
@@ -64,6 +66,8 @@ class BrowserTestCase: XCTestCase {
         return result
     }
 
+    /// Returns a bundled test fixture URL. Keep this helper test-only so fixture
+    /// navigation stays separate from any production URL policy.
     func fixtureURL(_ name: String) -> String {
         let bundle = Bundle.module
         guard
@@ -84,10 +88,25 @@ class BrowserTestCase: XCTestCase {
         return browserSync { ctx.navigate(args: args) }
     }
 
-    func takeSnapshot(detail: String = "standard") -> String {
+    func takeSnapshot(
+        filter: String? = nil,
+        maxElements: Int? = nil,
+        visibleOnly: Bool? = nil,
+        detail: String = "standard"
+    ) -> String {
         guard let ctx = context else { return "" }
+        var fields = ["\"detail\": \"\(detail)\""]
+        if let filter {
+            fields.append("\"filter\": \"\(filter)\"")
+        }
+        if let maxElements {
+            fields.append("\"max_elements\": \(maxElements)")
+        }
+        if let visibleOnly {
+            fields.append("\"visible_only\": \(visibleOnly)")
+        }
+        let args = "{\(fields.joined(separator: ", "))}"
         return browserSync {
-            let args = "{\"detail\": \"\(detail)\"}"
             return ctx.snapshot(args: args)
         }
     }
